@@ -1,0 +1,6 @@
+# Image identity. Everything else about the image lives in usr.d/.
+{
+    id: "elvos"
+    version: "0.1.0"
+    mirror: "https://archlinux.mailtunnel.eu"
+}

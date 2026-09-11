@@ -1,0 +1,4 @@
+# One pacman package per line. Layers are applied in name order, and the
+# package lists of every layer are installed together, before any files.
+base
+linux

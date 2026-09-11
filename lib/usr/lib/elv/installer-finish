@@ -1,0 +1,61 @@
+#!/bin/bash
+# Runs after systemd-sysinstall, before the reboot into the new system.
+#
+# sysinstall copies the UKI with bootctl link, which puts it in /<entry-token>/
+# behind Type #1 boot entries, with the credentials it made as "extra" files
+# of those entries. systemd-sysupdate manages UKIs as Type #2 files in
+# /EFI/Linux and knows nothing of entries: left as it is, an installed system
+# would carry the installed UKI forever next to the two sysupdate keeps, and
+# `default <token>-*` would keep booting it after every update.
+#
+# So the new ESP is reshaped into the layout the image's own ESP has: the UKI
+# in /EFI/Linux, where systemd-boot finds it and sysupdate matches it, and the
+# credentials in /loader/credentials, which systemd-stub hands to every UKI -
+# so they outlive the UKI they were installed with.
+set -euo pipefail
+
+. /usr/lib/os-release
+mnt=$(mktemp -d)
+
+# The new disk is not told to us, so look at every ESP: only one sysinstall
+# has just written has entries pointing into /$IMAGE_ID/. A mounted one is
+# the ESP we booted from. The others are mounted read-only until there is
+# something to change: a read-write vfat mount marks the filesystem dirty.
+for esp in $(lsblk -nrpo PATH,PARTTYPE | awk '$2 == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" { print $1 }'); do
+    findmnt -rn --source "$esp" > /dev/null && continue
+    mount -o ro "$esp" "$mnt" 2> /dev/null || continue
+    entries=$(grep -lx "uki /$IMAGE_ID/.*\.efi" "$mnt"/loader/entries/*.conf 2>/dev/null || true)
+    if [ -z "$entries" ]; then
+        umount "$mnt"
+        continue
+    fi
+
+    mount -o remount,rw "$mnt"
+    mkdir -p "$mnt/EFI/Linux" "$mnt/loader/credentials"
+    for entry in $entries; do
+        # One entry per UKI profile, all naming the same files.
+        uki=$(sed -n 's/^uki //p' "$entry")
+        [ -e "$mnt$uki" ] && mv "$mnt$uki" "$mnt/EFI/Linux/"
+        for extra in $(sed -n 's/^extra //p' "$entry"); do
+            [ -e "$mnt$extra" ] || continue
+            case "$extra" in
+                *.cred) mv "$mnt$extra" "$mnt/loader/credentials/" ;;
+                *) mkdir -p "$mnt/EFI/Linux/${uki##*/}.extra.d"
+                   mv "$mnt$extra" "$mnt/EFI/Linux/${uki##*/}.extra.d/" ;;
+            esac
+        done
+        rm "$entry"
+    done
+    rmdir "$mnt/$IMAGE_ID" 2>/dev/null || true
+
+    # With no default, systemd-boot starts the newest UKI's first profile,
+    # as on the image's own ESP.
+    sed -i '/^default /d' "$mnt/loader/loader.conf"
+
+    umount "$mnt"
+    echo "Moved the boot entry on $esp to /EFI/Linux, where updates will manage it."
+done
+rmdir "$mnt"
+
+read -r -s -n 1 -p "Press any key to reboot into the installed system." || true
+echo
