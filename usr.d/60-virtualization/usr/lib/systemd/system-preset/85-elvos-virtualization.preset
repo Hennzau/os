@@ -1,0 +1,3 @@
+# Socket-activated: libvirtd starts on the first virsh connection.
+enable libvirtd.socket
+enable virtlogd.socket

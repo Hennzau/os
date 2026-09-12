@@ -1,0 +1,7 @@
+# IBM Plex for everything - Sans, Serif and Mono are all in ttf-ibm-plex -
+# and Noto behind it for what Plex does not cover: other scripts, CJK (the
+# bulk of the size, ~300 MB; drop noto-fonts-cjk to go without), emoji.
+ttf-ibm-plex
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji

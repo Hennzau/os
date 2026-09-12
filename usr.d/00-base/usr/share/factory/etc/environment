@@ -1,0 +1,5 @@
+# Set by pam_env for every login: consoles, run0, su. The user manager and
+# what it starts read /usr/lib/environment.d instead - same values there.
+
+# Debug symbols for Arch's packages, fetched on demand by gdb and friends.
+DEBUGINFOD_URLS=https://debuginfod.archlinux.org

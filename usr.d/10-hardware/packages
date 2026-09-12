@@ -1,0 +1,44 @@
+# Audio, Wi-Fi, the keyboard, power and the firmware the hardware needs, for
+# a machine with someone at it.
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+
+iwd
+
+keyd
+
+# Firmware and microcode. amd-ucode installs to /boot, which does not ship:
+# uki.nu puts it in the UKI instead. All of linux-firmware, not only this
+# laptop's parts, so the image - an installer stick above all - boots other
+# machines too; sof-firmware (Intel/AMD audio DSPs) is not part of it.
+amd-ucode
+linux-firmware
+sof-firmware
+
+# Power: power-profiles-daemon switches between power-saver, balanced and
+# performance (the CPU's energy preference and the platform's ACPI profile),
+# powerprofilesctl - which needs python-gobject - to choose one. brightnessctl
+# sets the backlight, through logind, so it needs no privileges.
+power-profiles-daemon
+python-gobject
+brightnessctl
+
+# Smartcards and security tokens (PIV, YubiKey): ccid is the USB reader
+# driver for pcscd, opensc the PKCS#11 module, pkcs11-provider lets OpenSSL
+# use keys that live on a token.
+ccid
+opensc
+pkcs11-provider
+
+# Bluetooth: bluez runs the adapter, bluez-utils is bluetoothctl to pair with
+# (pipewire's bluez5 plugin comes with pipewire-audio). fwupd updates device
+# firmware; it is D-Bus activated, and its weekly metadata refresh timer is
+# left off.
+bluez
+bluez-utils
+fwupd
+
+# Talking to the host when this image is the guest (elv vm wires the channel).
+qemu-guest-agent

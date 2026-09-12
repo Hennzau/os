@@ -1,0 +1,146 @@
+#!/bin/bash
+# elvos-wg-enroll [--manual] CONFIG
+#
+# Turn a wg-quick config - what a WireGuard provider hands out - into a
+# systemd-networkd tunnel, wg0. The private key goes into an encrypted
+# credential (sealed to the TPM where there is one), not into a file in
+# /etc. All traffic goes through the tunnel, except to private networks.
+# DNS is left as it is: the config's DNS= line is ignored.
+#
+#   --manual   do not bring wg0 up at boot; `networkctl up wg0` does
+#
+# Run as root. Enrolling again replaces the tunnel.
+set -eu -o pipefail
+
+netdev=50-wg0
+config= activation=up
+
+while [[ $# -gt 0 ]]; do
+        case $1 in
+        --manual)  activation=manual; shift ;;
+        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -*)        echo "${0##*/}: unknown option: $1" >&2; exit 2 ;;
+        *)         config=$1; shift ;;
+        esac
+done
+
+[[ -n $config ]] || { echo "${0##*/}: need a wg-quick config file" >&2; exit 2; }
+[[ -r $config ]] || { echo "${0##*/}: cannot read $config" >&2; exit 1; }
+[[ $EUID -eq 0 ]] || { echo "${0##*/}: must run as root" >&2; exit 1; }
+
+# section.Key=value, one per line, for every non-empty setting.
+parse() {
+        awk -F= '
+                /^[[:space:]]*[#;]/ { next }
+                /^[[:space:]]*\[/   { gsub(/[][[:space:]]/, "", $0); section = $0; next }
+                NF < 2              { next }
+                {
+                        key = $1; sub(/[[:space:]]+$/, "", key); gsub(/^[[:space:]]+/, "", key)
+                        val = substr($0, index($0, "=") + 1)
+                        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+                        if (val != "") print section "." key "=" val
+                }
+        ' "$1"
+}
+
+get() { parse "$config" | awk -F= -v k="$1" '$1 == k { sub(/^[^=]*=/, ""); print; exit }'; }
+
+private_key=$(get Interface.PrivateKey)
+addresses=$(get Interface.Address)
+peer_key=$(get Peer.PublicKey)
+endpoint=$(get Peer.Endpoint)
+allowed_ips=$(get Peer.AllowedIPs)
+keepalive=$(get Peer.PersistentKeepalive)
+
+for v in private_key addresses peer_key endpoint allowed_ips; do
+        [[ -n ${!v} ]] || { echo "${0##*/}: $config has no ${v//_/ }" >&2; exit 1; }
+done
+: "${keepalive:=25}"
+
+# Before the umask below: on a fresh /etc these do not exist yet, and a
+# network directory made 0700 is one networkd - not root - cannot read.
+install -d -m 0755 /etc/systemd /etc/systemd/network
+install -d -m 0700 /etc/credstore.encrypted
+
+umask 077
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+printf '%s' "$private_key" >"$tmp/private"
+
+systemd-creds encrypt --name="network.wireguard.private.${netdev}" \
+        --with-key=auto "$tmp/private" \
+        "/etc/credstore.encrypted/network.wireguard.private.${netdev}"
+
+umask 022
+
+# No PrivateKey=: networkd takes it from the credential above.
+cat >"/etc/systemd/network/${netdev}.netdev" <<EOF
+[NetDev]
+Name=wg0
+Kind=wireguard
+Description=WireGuard VPN
+
+[WireGuard]
+FirewallMark=0xca6c
+
+[WireGuardPeer]
+PublicKey=${peer_key}
+Endpoint=${endpoint}
+AllowedIPs=${allowed_ips}
+PersistentKeepalive=${keepalive}
+RouteTable=51820
+EOF
+
+# The peer's routes live in table 51820. The rules, in order: private
+# networks stay on the main table, so the LAN is reachable with the tunnel
+# up; anything more specific than a default route stays on it too;
+# everything else, except the tunnel's own packets (marked 0xca6c), goes
+# through the tunnel.
+{
+        printf '[Match]\nName=wg0\n\n[Link]\nActivationPolicy=%s\n\n[Network]\n' "$activation"
+        printf '%s' "$addresses" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;/^$/d;s/^/Address=/'
+        cat <<'EOF'
+
+[RoutingPolicyRule]
+To=10.0.0.0/8
+Table=main
+Priority=32763
+
+[RoutingPolicyRule]
+To=172.16.0.0/12
+Table=main
+Priority=32763
+
+[RoutingPolicyRule]
+To=192.168.0.0/16
+Table=main
+Priority=32763
+
+[RoutingPolicyRule]
+Table=main
+SuppressPrefixLength=0
+Priority=32764
+Family=both
+
+[RoutingPolicyRule]
+FirewallMark=0xca6c
+InvertRule=yes
+Table=51820
+Priority=32765
+Family=both
+EOF
+} >"/etc/systemd/network/${netdev}.network"
+
+# A restart, not a reload: networkd imports its credentials when it starts.
+systemctl restart systemd-networkd
+
+cat <<MSG
+Enrolled from: ${config}
+  endpoint   : ${endpoint}
+  addresses  : ${addresses}
+  connect    : $( [[ $activation == up ]] && echo "at every boot" || echo "by hand (--manual)" )
+
+Up:   networkctl up wg0
+Down: networkctl down wg0
+
+${config} still holds the private key - delete it: shred -u ${config}
+MSG

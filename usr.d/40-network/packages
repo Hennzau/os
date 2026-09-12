@@ -1,0 +1,6 @@
+# The firewall, the WireGuard VPN, Wi-Fi's regulatory database, the ssh
+# client and its agent.
+nftables
+wireguard-tools
+wireless-regdb
+openssh

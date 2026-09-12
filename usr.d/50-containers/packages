@@ -1,0 +1,5 @@
+# Rootless containers: podman with pasta for networking, distrobox on top.
+podman
+distrobox
+passt
+fuse-overlayfs

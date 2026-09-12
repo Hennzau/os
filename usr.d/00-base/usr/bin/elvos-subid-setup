@@ -1,0 +1,20 @@
+#!/bin/bash
+set -eu -o pipefail
+
+subuid=/etc/subuid
+subgid=/etc/subgid
+min=100000
+count=65536
+
+touch "$subuid" "$subgid"
+
+while IFS=: read -r name _ uid _; do
+        [[ $uid -ge 1000 && $uid -lt 65534 ]] || continue
+        grep -q "^$name:" "$subuid" && continue
+
+        start=$(( min + $(wc -l < "$subuid") * count ))
+
+        printf '%s:%u:%u\n' "$name" "$start" "$count" >>"$subuid"
+        printf '%s:%u:%u\n' "$name" "$start" "$count" >>"$subgid"
+        echo "granted $name subid range $start+$count"
+done < <(getent passwd)

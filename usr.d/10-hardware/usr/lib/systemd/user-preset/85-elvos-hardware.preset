@@ -1,0 +1,5 @@
+# Audio, per user: pipewire's sockets start it on demand, wireplumber is
+# pulled in by pipewire.service.
+enable pipewire.socket
+enable pipewire-pulse.socket
+enable wireplumber.service

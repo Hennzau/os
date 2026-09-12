@@ -1,0 +1,12 @@
+# DHCP on any wired interface; preferred over Wi-Fi when both are up.
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+RouteMetric=100
+
+[IPv6AcceptRA]
+RouteMetric=100

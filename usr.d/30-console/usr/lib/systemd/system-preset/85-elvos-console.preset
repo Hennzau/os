@@ -1,0 +1,5 @@
+# kmscon instead of agetty on the VTs. Enabling kmsconvt@ also installs its
+# autovt@ alias, so logind spawns kmscon on every VT it opens; getty@ goes,
+# or tty1 would have both. If kmscon fails, its unit starts getty@ instead.
+disable getty@.service
+enable kmsconvt@.service

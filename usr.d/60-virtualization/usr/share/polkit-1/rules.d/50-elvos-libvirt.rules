@@ -1,0 +1,7 @@
+// wheel manages the system libvirt (qemu:///system) without a password
+// prompt, as it would with the libvirt group.
+polkit.addRule(function (action, subject) {
+    if (action.id.indexOf("org.libvirt.") === 0 && subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});

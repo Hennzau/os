@@ -1,0 +1,14 @@
+[Unit]
+Description=Grant subordinate UID/GID ranges to regular users
+Documentation=man:subuid(5) man:newuidmap(1)
+After=systemd-homed.service systemd-userdbd.service systemd-homed-firstboot.service
+Before=systemd-user-sessions.service
+ConditionPathIsReadWrite=/etc
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/elvos-subid-setup
+
+[Install]
+WantedBy=multi-user.target

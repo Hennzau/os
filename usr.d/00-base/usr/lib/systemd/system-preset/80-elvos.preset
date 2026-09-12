@@ -1,0 +1,7 @@
+# Arch's presets end with `disable *`, so what should run has to be named.
+# On first boot, after systemd-firstboot's keymap, timezone and root password,
+# homed asks for the first user account if there is none.
+enable systemd-homed-firstboot.service
+# Subordinate UID/GID ranges for regular users, which `elv` needs to build
+# images unprivileged (unshare --map-auto).
+enable elvos-subid.service

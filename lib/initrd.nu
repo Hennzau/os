@@ -5,17 +5,26 @@
 use common.nu *
 use tree.nu [bootstrap]
 
-const PACKAGES = [systemd util-linux kmod bash coreutils]
+# tpm2-tss: systemd loads it to seal the root's key at first boot and unseal
+# it on every boot after. btrfs-progs: first boot's repart formats root and
+# /home from here, before anything mounts them.
+const PACKAGES = [systemd util-linux kmod bash coreutils tpm2-tss btrfs-progs]
 
-# Enough to find and mount a /usr partition on the machines this image boots:
-# virtio for VMs, NVMe/AHCI/USB for hardware, erofs and dm-verity for /usr,
-# vfat for the ESP. Dependencies are resolved from modinfo, so this is only
-# the list of things we actually ask for.
+# Enough to find and mount /usr and / on the machines this image boots:
+# virtio for VMs, NVMe/AHCI/USB for hardware - NVMe behind Intel's VMD too,
+# and SD/eMMC - erofs and dm-verity for /usr, dm-crypt for / (btrfs, the TPM
+# drivers and XTS are built into the kernel), vfat for the ESP. And a
+# keyboard for an emergency shell: USB and PS/2 ones are built in, laptop
+# keyboards on I2C need i2c-hid and, on Intel, the LPSS bus under it.
+# Dependencies are resolved from modinfo, so this is only the list of things
+# we actually ask for; a name modinfo does not know is skipped.
 const MODULES = [
     virtio_blk virtio_scsi virtio_pci virtio_net
-    nvme ahci sd_mod usb_storage uas xhci_pci xhci_hcd ehci_pci
-    erofs dm_verity dm_mod loop
+    nvme vmd ahci sd_mod usb_storage uas xhci_pci xhci_pci_renesas xhci_hcd ehci_pci
+    mmc_block sdhci_pci sdhci_acpi
+    erofs dm_verity dm_crypt dm_mod loop
     vfat nls_cp437 nls_iso8859_1
+    i2c_hid_acpi intel_lpss_pci intel_lpss_acpi
 ]
 
 # Everything the initrd has no use for. It is packed into RAM on every boot,

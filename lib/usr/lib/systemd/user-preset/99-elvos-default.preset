@@ -1,0 +1,5 @@
+# Default off, as Arch's 99-default.preset does for system units - systemd's
+# own default is on, and `systemctl --global preset-all` (hermetic) would
+# otherwise enable every user unit that has an [Install] section. What should
+# run is named in a layer's user-preset file.
+disable *

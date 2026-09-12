@@ -1,0 +1,15 @@
+#!/bin/bash
+# qmk, run inside the "qmk" distrobox (/usr/share/distrobox/qmk.ini).
+# The first run builds the box - pulls Arch and installs QMK's toolchains
+# into your container storage - and later ones just enter it. To rebuild it
+# with current packages: `distrobox rm qmk`, then run qmk again.
+set -eu -o pipefail
+
+box=qmk
+
+if ! podman container exists "$box" 2>/dev/null; then
+        echo "qmk: first run - building the '$box' distrobox, which downloads QMK's toolchains" >&2
+        distrobox assemble create --file /usr/share/distrobox/qmk.ini --name "$box" >&2
+fi
+
+exec distrobox enter "$box" -- qmk "$@"

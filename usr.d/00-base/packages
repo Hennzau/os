@@ -1,4 +1,44 @@
 # One pacman package per line. Layers are applied in name order, and the
 # package lists of every layer are installed together, before any files.
 base
-linux
+# The long-term-support kernel: fewer surprises on a machine that updates
+# itself.
+linux-lts
+
+# Building this image from inside itself, running it and updating to it:
+# what elv calls (lib/*.nu), beyond what base already brings.
+nushell
+sbsigntools
+systemd-ukify
+erofs-utils
+mtools
+cpio
+polkit
+qemu-desktop
+edk2-ovmf
+swtpm
+# `elv vm` enrolls our key into the VM's firmware variables with it.
+virt-firmware
+git
+jujutsu
+
+# The disk: btrfs root and /home, LUKS2 keys in the TPM or on a FIDO2 token,
+# Secure Boot's keys.
+btrfs-progs
+tpm2-tools
+libfido2
+sbctl
+
+# At the console
+curl
+nano
+less
+which
+tree
+htop
+jq
+diffutils
+# dig, host, nslookup
+bind
+# make, gcc and the rest of what builds a package
+base-devel

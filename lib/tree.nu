@@ -132,11 +132,91 @@ export def apply-usr [src: path, tree: path] {
     ns-run - sh -c $"tar -C '($src)' --exclude=.keep -cf - . | tar -C '($tree)/usr' -xpf -"
 }
 
+# The image speaks what the layers' factory locale.conf says (usr.d/00-base:
+# usr/share/factory/etc/locale.conf), and nothing else: those locales are
+# compiled, PID 1 gets the same variables, and every other language's
+# translations, the locale sources and translated man pages go - over 100 MB.
+export def locales [tree: path] {
+    let conf = ($tree | path join usr share factory etc locale.conf)
+    if not ($conf | path exists) { return }
+    let vars = (open --raw $conf | lines
+        | parse --regex '^(?<key>LANG|LC_[A-Z_]+)=(?<value>.+)$'
+        | update value { str trim --char '"' })
+    let wanted = ($vars | get value | uniq)
+
+    # localedef takes seconds, so its output is kept, keyed on the glibc it
+    # was compiled for: a build only copies three megabytes.
+    let glibc = (ls (base-dir | path join var lib pacman local) | get name | path basename | where { $in =~ '^glibc-[0-9]' } | first)
+    let key = { glibc: $glibc, locales: $wanted } | to nuon
+    let cached = (workspace | path join locale-archive)
+    let stamp = (workspace | path join locale-archive.key)
+    let archive = ($tree | path join usr lib locale locale-archive)
+    if ($cached | path exists) and ($stamp | path exists) and (open --raw $stamp) == $key {
+        ns-run - cp $cached $archive
+    } else {
+        for l in $wanted {
+            let parts = ($l | split row ".")
+            ns-run - chroot $tree localedef -i ($parts | first) -f ($parts | last) $l
+        }
+        cp $archive $cached
+        $key | save --force $stamp
+    }
+
+    # PID 1 reads /etc/locale.conf as it starts, before tmpfiles has linked
+    # it in, so it and every service it starts would run in C.UTF-8 -
+    # systemd-sysinstall, which carries the locale over, among them. Its own
+    # configuration is read from /usr. (The kernel command line would do too,
+    # but localectl then warns that it overrides locale.conf.)
+    let manager = ($tree | path join usr lib systemd system.conf.d)
+    mkdir $manager
+    let assignments = ($vars | each { |v| $"($v.key)=($v.value)" } | str join " ")
+    $"[Manager]\nDefaultEnvironment=($assignments)\n" | save --force ($manager | path join 10-locale.conf)
+
+    # Translations are kept for these languages alone: en_US.UTF-8 keeps
+    # en_US and en.
+    let langs = ($wanted | each { split row "." | first } | each { |l| [$l ($l | split row "_" | first)] } | flatten | uniq)
+    let keep = ($langs | each { |l| $"! -name '($l)'" } | str join " ")
+    let share = ($tree | path join usr share)
+    ns-run - sh -c ($"rm -rf '($share)/i18n' && "
+        + $"find '($share)/locale' -mindepth 1 -maxdepth 1 ! -name locale.alias ($keep) -exec rm -rf {} + && "
+        + $"find '($share)/man' -mindepth 1 -maxdepth 1 ! -name 'man*' ($keep) -exec rm -rf {} +")
+}
+
+# The /etc paths tmpfiles fills from the factory at boot: C and L lines on
+# /etc with no source of their own, in any of the image's tmpfiles.d files -
+# ours (lib/usr/lib/tmpfiles.d/etc.conf), Arch's arch.conf, and whatever a
+# layer adds.
+def factory-paths [tree: path]: nothing -> list<string> {
+    glob ($tree | path join usr lib tmpfiles.d "*.conf")
+    | each { open --raw | lines } | flatten | str trim
+    | where { $in =~ '^[CL][-+!?=~^]*\s+/etc/' }
+    | each { split row --regex '\s+' }
+    | where { |f| ($f | length) < 7 or $f.6 == "-" }
+    | each { |f| $f.1 | str replace --regex '^/etc/' '' }
+    | where { not ($in | str contains "*") }
+    | uniq
+}
+
+# fontconfig's caches, built with the image and kept in /usr, where
+# lib/usr's 05-elv-cache.conf points fontconfig. fc-cache writes to the
+# first writable cache directory, /var/cache/fontconfig, so they are moved
+# from there. A cache is valid while its font directory's mtime is unchanged
+# - and /usr's never changes.
+export def font-cache [tree: path] {
+    if not ($tree | path join usr bin fc-cache | path exists) { return }
+    let cache = ($tree | path join usr lib fontconfig cache)
+    ns-run - sh -c ($"rm -rf '($tree)/var/cache/fontconfig' '($cache)' && "
+        + $"chroot '($tree)' fc-cache --system-only --really-force > /dev/null && "
+        + $"mkdir -p '($cache)' && mv '($tree)'/var/cache/fontconfig/* '($cache)'/")
+}
+
 export def set-os-release [tree: path] {
     let c = (config)
     let file = ($tree | path join usr lib os-release)
-    let kept = (open --raw $file | lines | where { |l| not ($l =~ '^(IMAGE_ID|IMAGE_VERSION)=') })
-    $kept | append [$"IMAGE_ID=($c.id)" $"IMAGE_VERSION=($c.version)"] | str join "\n" | $in + "\n" | save --force $file
+    let kept = (open --raw $file | lines | where { |l| not ($l =~ '^(IMAGE_ID|IMAGE_VERSION|DEFAULT_HOSTNAME)=') })
+    # DEFAULT_HOSTNAME is the hostname as long as /etc/hostname sets none:
+    # PID 1 and hostnamed read it from here, so /etc needs no file for it.
+    $kept | append [$"IMAGE_ID=($c.id)" $"IMAGE_VERSION=($c.version)" $"DEFAULT_HOSTNAME=($c.id)"] | str join "\n" | $in + "\n" | save --force $file
 }
 
 # Unit enablement lands in /etc/systemd as symlinks, and /etc does not ship.
@@ -159,11 +239,44 @@ export def relocate-enablement [tree: path] {
     }
 }
 
+# At boot, systemd-sysusers creates the system users afresh from sysusers.d,
+# before anything copies /etc/passwd in. One with a fixed number there gets
+# the build's number back; one numbered dynamically may not (alpm, avahi, git,
+# pcscd and qemu came out different). A file in /usr owned by such a user
+# would belong to someone else at boot: say so.
+def check-owners [tree: path] {
+    let fixed = (glob ($tree | path join usr lib sysusers.d "*.conf")
+        | each { open --raw | lines } | flatten
+        | parse --regex '^[ugm]\s+(?<name>\S+)\s+(?<id>\d+)' | get name | uniq)
+    let names = { |file|
+        open --raw ($tree | path join etc $file) | lines | parse "{name}:{x}:{id}:{rest}"
+        | reduce --fold {} { |e, acc| $acc | insert $e.id $e.name }
+    }
+    let users = (do $names passwd)
+    let groups = (do $names group)
+    # Through sh: ns-run hands its arguments to nushell, which would parse the
+    # parentheses.
+    let owned = (ns-run - sh -c $"find '($tree)/usr' \\\( ! -uid 0 -o ! -gid 0 \\\) -printf '%U %G %p\\n'" | lines)
+    for line in $owned {
+        let f = ($line | split row " ")
+        for owner in [[($users | get -o ($f | get 0)) "user"] [($groups | get -o ($f | get 1)) "group"]] {
+            let name = ($owner | first)
+            if $name != null and $name != "root" and $name not-in $fixed {
+                print $"  (ansi yellow)warning:(ansi reset) ($f | skip 2 | str join ' ' | str replace $tree '') is owned by ($owner | last) ($name), numbered dynamically - its number may differ at boot"
+            }
+        }
+    }
+}
+
 export def hermetic [tree: path] {
     step "making /usr hermetic"
     set-os-release $tree
 
     ^systemctl --root $tree preset-all out> /dev/null err> /dev/null
+    # And the per-user units (pipewire and friends): --global writes the same
+    # kind of symlinks under /etc/systemd/user, which relocate-enablement
+    # moves into /usr as well.
+    ^systemctl --root $tree --global preset-all out> /dev/null err> /dev/null
     relocate-enablement $tree
 
     # pacman's database describes what is in /usr, so it moves with /usr; a
@@ -173,13 +286,24 @@ export def hermetic [tree: path] {
         ns-run - sh -c $"mkdir -p '($tree)/usr/lib/pacman' && rm -rf '($tree)/usr/lib/pacman/local' && mv '($local)' '($tree)/usr/lib/pacman/local'"
     }
 
-    # /etc as the packages left it becomes the factory copy; tmpfiles merges it
-    # into the real /etc at boot without overwriting anything already there.
+    # The factory copy of /etc holds exactly what tmpfiles puts in /etc at
+    # boot, and nothing else. Each entry comes from /etc as the packages left
+    # it - so PAM, the CA store, pacman.conf follow the packages - unless a
+    # layer ships its own under usr/share/factory/etc, which wins: what is
+    # ours is a file in the repo.
     let factory = ($tree | path join usr share factory etc)
-    ns-run - sh -c ($"rm -rf '($factory)' && mkdir -p '($factory)' && tar -C '($tree)/etc' "
-        + "--exclude=./machine-id --exclude=./resolv.conf --exclude=./mtab --exclude=./os-release "
-        + "--exclude=./.pwd.lock --exclude=./.updated "
-        + $"-cf - . | tar -C '($factory)' -xpf -")
+    let list = (workspace | path join factory.list)
+    factory-paths $tree | where { |p| ($tree | path join etc $p) | path exists }
+    | each { $"./($in)" } | str join "\n" | save --force $list
+    ns-run - sh -c $"rm -rf '($factory)' && mkdir -p '($factory)' && tar -C '($tree)/etc' -cf - -T '($list)' | tar -C '($factory)' -xpf -"
+    for l in ([(project | path join lib usr)] | append (layers | each { path join usr })) {
+        let own = ($l | path join share factory etc)
+        if ($own | path exists) {
+            ns-run - sh -c $"tar -C '($own)' --exclude=.keep -cf - . | tar -C '($factory)' -xpf -"
+        }
+    }
+
+    check-owners $tree
 
     # The verity signature is checked in userspace against these, in the
     # initrd and after switching root.
@@ -216,6 +340,8 @@ export def main [--update] {
         apply-usr ($l | path join usr) $tree
     }
 
+    locales $tree
+    font-cache $tree
     hermetic $tree
     print $"  kernel (kernel-version $tree)"
 }

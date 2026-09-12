@@ -1,0 +1,7 @@
+# libvirt's system instance for VMs that outlive a terminal (QEMU, OVMF and
+# swtpm come with 00-base, the guest agent with 10-hardware). dnsmasq serves
+# its NAT network, virtiofsd shares host directories.
+libvirt
+dnsmasq
+dmidecode
+virtiofsd

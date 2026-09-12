@@ -1,0 +1,2 @@
+# openssh's per-user agent, started by the first client that connects.
+enable ssh-agent.socket

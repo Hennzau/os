@@ -1,0 +1,8 @@
+# Arch's presets end with `disable *`, so what should run has to be named.
+enable iwd.service
+enable keyd.service
+enable bluetooth.service
+enable qemu-guest-agent.service
+enable power-profiles-daemon.service
+# pcscd starts with the first program that talks to a card.
+enable pcscd.socket
