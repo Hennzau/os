@@ -24,6 +24,19 @@ and prefer lean code whose comments explain reasons rather than restate code.
   layer ships under `usr/share/factory/etc/` is an /etc default and wins over
   the package's version (it reaches /etc if a tmpfiles line names it).
 - `image.nuon` holds identity only: `id`, `version`, `mirror`.
+- **Templates** (2026-09-13): a layer file `NAME.tmpl` is rendered at build
+  time into `NAME` (the template's mode kept) and never shipped itself;
+  `NAME.tmpl.tmpl` gives a file called `NAME.tmpl`. Values come from
+  `vars/*.yaml|yml`, merged, each file bringing its own top-level keys
+  (`palette:`, `font:` - elvOS's `theme/*.yml` drop in as they are); a key
+  in two files is an error. Placeholders `{{ a.b.c }}` or `{{ .a.b.c }}`
+  (elvOS's Go spelling); other `{{ ... }}` is left alone; a missing or
+  non-scalar value stops the build naming the file; substitution is literal
+  (`$`, `\` safe). Done where layer files enter the tree: `apply-usr` and
+  the factory `/etc` overlay in `hermetic` (both tar with `--exclude='*.tmpl'`,
+  then `render-templates`). Verified with a throwaway layer: nesting,
+  int/bool, repeated refs, an executable template (0755), a factory one, the
+  .tmpl.tmpl escape, and each error case.
 - Nothing outside `/usr` ships: **/etc starts empty** on first boot (the
   root partition is created then, see "Persistent disk") and gets only what
   tmpfiles rules put there, mostly as links into
@@ -42,6 +55,7 @@ and prefer lean code whose comments explain reasons rather than restate code.
 ```
 elv                 entry point (nushell script, subcommands)
 image.nuon          id / version / mirror
+vars/               YAML values for layer *.tmpl files (optional)
 usr.d/NN-name/      layers: packages + usr/
 lib/common.nu       paths, config, ns-run (the user-namespace runner)
 lib/ns.nu           runs *inside* the namespace; mounts API fs into a tree

@@ -126,10 +126,72 @@ export def base [--update] {
 
 # Copy a layer's usr/ over the tree's /usr, as namespace root so every file
 # ends up owned by root in the image. .keep files only hold empty directories
-# in git.
+# in git. Templates are rendered in, never copied.
 export def apply-usr [src: path, tree: path] {
     if not ($src | path exists) { return }
-    ns-run - sh -c $"tar -C '($src)' --exclude=.keep -cf - . | tar -C '($tree)/usr' -xpf -"
+    ns-run - sh -c $"tar -C '($src)' --exclude=.keep --exclude='*.tmpl' -cf - . | tar -C '($tree)/usr' -xpf -"
+    render-templates $src ($tree | path join usr)
+}
+
+# The values templates are rendered with: every vars/*.yaml (or .yml), each
+# holding its own top-level keys - palette:, font: - merged into one record.
+# A key two files both define is an error, not a silent override.
+export def template-vars []: nothing -> record {
+    let dir = (project | path join vars)
+    if not ($dir | path exists) { return {} }
+    glob ($dir | path join "*.{yaml,yml}") | sort | reduce --fold {} { |f, acc|
+        let data = try { open $f | default {} } catch { |e|
+            error make { msg: $"vars/($f | path basename): not valid YAML \(($e.msg))" }
+        }
+        let twice = ($data | columns | where { $in in $acc })
+        if ($twice | is-not-empty) {
+            error make { msg: $"vars/: ($twice | str join ', ') defined again in ($f | path basename)" }
+        }
+        $acc | merge $data
+    }
+}
+
+# One template's text, rendered: every {{ a.b.c }} - or {{ .a.b.c }}, the Go
+# spelling elvOS's templates use - becomes that value from vars/. Anything
+# else between braces is left as it is. A missing value, or one that is a
+# list or a map rather than a scalar, stops the build and names the file.
+def render [file: path, vars: record]: nothing -> string {
+    let text = (open --raw $file)
+    let name = ($file | path relative-to (project))
+    let refs = ($text
+        | parse --regex '(?<whole>\{\{\s*\.?(?<key>[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\s*\}\})'
+        | uniq-by whole)
+    $refs | reduce --fold $text { |r, acc|
+        let value = ($vars | get -o ($r.key | split row "." | into cell-path))
+        if $value == null {
+            error make { msg: $"($name): no value for ($r.key) in vars/" }
+        }
+        if ($value | describe) not-in [string int float bool] {
+            error make { msg: $"($name): ($r.key) is a ($value | describe), not a single value" }
+        }
+        # Literal, not regex, replacement: a $ or \ in a value stays as it is.
+        $acc | str replace --all $r.whole ($value | into string)
+    }
+}
+
+# Every *.tmpl under src, rendered into dst at the same place minus the
+# .tmpl, with the template's own mode. (A file that must keep a .tmpl name
+# is shipped as NAME.tmpl.tmpl.)
+def render-templates [src: path, dst: path] {
+    let templates = (glob ($src | path join "**/*.tmpl") --no-dir)
+    if ($templates | is-empty) { return }
+    let vars = (template-vars)
+    let stage = (workspace | path join rendered)
+    for t in $templates {
+        let rel = ($t | path relative-to $src | str replace --regex '\.tmpl$' '')
+        let out = ($stage | path join $rel)
+        mkdir ($out | path dirname)
+        render $t $vars | save --force --raw $out
+        let mode = (^stat -c %a $t | str trim)
+        ns-run - sh -c $"install -D -m ($mode) '($out)' '($dst | path join $rel)'"
+        print $"    ($rel) \(rendered)"
+    }
+    rm -rf $stage
 }
 
 # The image speaks what the layers' factory locale.conf says (usr.d/00-base:
@@ -299,7 +361,8 @@ export def hermetic [tree: path] {
     for l in ([(project | path join lib usr)] | append (layers | each { path join usr })) {
         let own = ($l | path join share factory etc)
         if ($own | path exists) {
-            ns-run - sh -c $"tar -C '($own)' --exclude=.keep -cf - . | tar -C '($factory)' -xpf -"
+            ns-run - sh -c $"tar -C '($own)' --exclude=.keep --exclude='*.tmpl' -cf - . | tar -C '($factory)' -xpf -"
+            render-templates $own $factory
         }
     }
 
