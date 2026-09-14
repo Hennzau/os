@@ -1,4 +1,10 @@
 #!/bin/bash
+# The audio sinks and sources worth offering in the control panel, one
+# node.name per line: a node is hidden only when every port (route) of its
+# device that feeds it is known to be unplugged - an HDMI output with no
+# screen, a headphone jack with nothing in it. "unknown" counts as there
+# (built-in speakers report it), and a device with no ports at all
+# (virtual, some USB) is shown.
 set -eu -o pipefail
 
 pw-dump | python3 -c '
@@ -6,25 +12,30 @@ import json, sys
 
 graph = json.load(sys.stdin)
 
-routes = {}
+# device id -> [(direction, card profile devices, available)]
+ports = {}
 for obj in graph:
     if obj.get("type") != "PipeWire:Interface:Device":
         continue
-    for route in obj.get("info", {}).get("params", {}).get("Route", []):
-        if route.get("available") == "no":
-            continue
-        routes.setdefault(obj["id"], set()).add(route.get("description"))
+    for route in obj.get("info", {}).get("params", {}).get("EnumRoute", []):
+        ports.setdefault(obj["id"], []).append(
+            (route.get("direction"), route.get("devices", []), route.get("available")))
 
 for obj in graph:
     if obj.get("type") != "PipeWire:Interface:Node":
         continue
     props = obj.get("info", {}).get("props", {})
-    if props.get("media.class") not in ("Audio/Sink", "Audio/Source"):
+    direction = {"Audio/Sink": "Output", "Audio/Source": "Input"}.get(props.get("media.class"))
+    if direction is None:
         continue
     try:
         device = int(props.get("device.id"))
+        profile_device = int(props.get("card.profile.device"))
     except (TypeError, ValueError):
+        print(props.get("node.name"))
         continue
-    if props.get("device.profile.description") in routes.get(device, ()):
+    feeding = [avail for d, devices, avail in ports.get(device, [])
+               if d == direction and profile_device in devices]
+    if not feeding or any(avail != "no" for avail in feeding):
         print(props.get("node.name"))
 '

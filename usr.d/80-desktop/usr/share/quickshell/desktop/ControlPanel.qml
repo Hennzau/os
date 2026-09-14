@@ -27,6 +27,17 @@ Rectangle {
         }
     }
 
+    // A device that comes or goes while the panel is open (Bluetooth
+    // headphones) changes the node list: probe again. Opening the panel
+    // probes too, for ports plugged in or out since.
+    Connections {
+        target: Pipewire.nodes
+
+        function onValuesChanged() {
+            nodeProbe.running = true;
+        }
+    }
+
     function usable(node) {
         return node.audio && !node.isStream && root.available.includes(node.properties["node.name"]);
     }
