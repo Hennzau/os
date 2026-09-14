@@ -1,0 +1,27 @@
+font={{ .font.sans }}:size={{ .font.size.ui }}
+dpi-aware=no
+prompt="❯ "
+icon-theme=Adwaita
+terminal=alacritty -e
+layer=overlay
+lines=12
+width=45
+horizontal-pad=24
+vertical-pad=16
+inner-pad=10
+
+[colors]
+background={{ .palette.bg.elevated | trimPrefix "#" }}f2
+text={{ .palette.fg.primary | trimPrefix "#" }}ff
+prompt={{ .palette.fg.muted | trimPrefix "#" }}ff
+placeholder={{ .palette.fg.placeholder | trimPrefix "#" }}ff
+input={{ .palette.fg.primary | trimPrefix "#" }}ff
+match={{ .palette.accent.primary | trimPrefix "#" }}ff
+selection={{ .palette.bg.element_selected | trimPrefix "#" }}ff
+selection-text={{ .palette.fg.primary | trimPrefix "#" }}ff
+selection-match={{ .palette.accent.secondary | trimPrefix "#" }}ff
+border={{ .palette.accent.primary | trimPrefix "#" }}ff
+
+[border]
+width=2
+radius=12

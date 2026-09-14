@@ -1,0 +1,17 @@
+# udisks - and udiskie above it - leave the system's own partitions alone:
+# /usr and its verity partitions by type, the rest by the labels repart
+# gives them (the image id, "elvos": elvos_<version> slots, elvos-swap,
+# -root, -home; an empty B slot is "_empty"), and the ESP.
+SUBSYSTEM!="block", GOTO="elvos_udisks_end"
+ENV{DEVTYPE}!="partition", GOTO="elvos_udisks_end"
+
+ENV{ID_PART_ENTRY_TYPE}=="8484680c-9521-48c6-9c11-b0720656f69e", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_TYPE}=="77ff5f63-e7b6-4633-acf4-1565b864c0e6", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_TYPE}=="e7bb33fb-06cf-4e81-8273-e543b413e2e2", ENV{UDISKS_IGNORE}="1"
+
+ENV{ID_PART_ENTRY_NAME}=="elvos-*", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_NAME}=="elvos_*", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_NAME}=="_empty", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_NAME}=="esp", ENV{UDISKS_IGNORE}="1"
+
+LABEL="elvos_udisks_end"

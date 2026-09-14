@@ -51,9 +51,10 @@ def "main image" [] { image }
 # --pristine. --install adds a blank disk to try the Installer entry on,
 # --share DIR offers a host directory to the guest, read-only. The firmware
 # has our keys enrolled; --setup-mode leaves it blank, for the boot menu's
-# enroll entry.
-def "main vm" [--serial, --headless, --install, --pristine, --setup-mode, --share: path] {
-    image vm --serial=$serial --headless=$headless --install=$install --pristine=$pristine --setup-mode=$setup_mode --share=$share
+# enroll entry. --gpu gives a headless run a 3D GPU, as the window has, for
+# testing the desktop (vmctl screen cannot read it then).
+def "main vm" [--serial, --headless, --install, --pristine, --setup-mode, --gpu, --share: path] {
+    image vm --serial=$serial --headless=$headless --install=$install --pristine=$pristine --setup-mode=$setup_mode --gpu=$gpu --share=$share
 }
 
 # Write the last built image to a disk, e.g. a USB stick (via run0), or to a file.

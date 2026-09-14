@@ -203,7 +203,8 @@ def enrolled-vars [out: path] {
 # `mount -t 9p -o trans=virtio,ro elv /mnt` in there. The firmware comes with
 # our keys enrolled; --setup-mode starts it with none, as a new machine, and
 # shows the boot menu, whose "Enroll Secure Boot keys" entry takes them.
-export def vm [--serial, --headless, --install, --pristine, --setup-mode, --share: path] {
+# --gpu gives a headless run the window's 3D GPU, for the desktop.
+export def vm [--serial, --headless, --install, --pristine, --setup-mode, --gpu, --share: path] {
     let img = (built-image)
     let ws = (workspace)
     # First thing: a vmctl started alongside must not read the last run's.
@@ -258,7 +259,15 @@ export def vm [--serial, --headless, --install, --pristine, --setup-mode, --shar
         # and unlike an emulated UART it has flow control - bytes typed fast
         # into a 16550 sometimes arrive twice. Its log sees everything the
         # guest writes, whether or not a client is on the socket.
-        let display = if $headless { [-display none] } else {
+        # Headless has no 3D GPU unless --gpu: under egl-headless QEMU's
+        # screendump finds no surface for any virgl scanout (kmscon's
+        # included), and vmctl reads every screen through screendumps. But
+        # without virgl niri finds no GPU it can use - it runs with no
+        # output and draws nothing - so a headless desktop test takes --gpu
+        # and looks through niri's own screenshots instead.
+        let display = if $headless {
+            if $gpu { [-display egl-headless] } else { [-display none] }
+        } else {
             # One guest pixel per screen pixel: QEMU sizes the guest to the
             # window in logical pixels divided by `scale`, so 1/(the output's
             # scale) makes a full-screen window the panel's own resolution
@@ -269,7 +278,10 @@ export def vm [--serial, --headless, --install, --pristine, --setup-mode, --shar
             [-display $"gtk,gl=on,grab-on-hover=on,show-tabs=off,show-menubar=off,zoom-to-fit=off,scale=(1 / (host-scale) | math round --precision 4)"
                 -device virtio-tablet-pci -audio "driver=pipewire,model=virtio"]
         }
-        ["-nodefaults" "-device" "virtio-vga" ...$display
+        # The window gets virtio-vga-gl: virgl, a 3D GPU in the guest, for
+        # niri and Quickshell.
+        let vga = if $headless and not $gpu { "virtio-vga" } else { "virtio-vga-gl" }
+        ["-nodefaults" "-device" $vga ...$display
             "-serial" $"file:($ws)/serial.log"
             "-device" "virtio-serial-pci"
             "-chardev" $"socket,id=console,path=($ws)/console.sock,server=on,wait=off,logfile=($ws)/console.log"

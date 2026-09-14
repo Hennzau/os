@@ -1,0 +1,168 @@
+@define-color theme_bg_color {{ .palette.bg.surface }};
+@define-color theme_fg_color {{ .palette.fg.primary }};
+@define-color theme_base_color {{ .palette.bg.editor }};
+@define-color theme_text_color {{ .palette.fg.editor }};
+@define-color theme_selected_bg_color {{ .palette.accent.primary }};
+@define-color theme_selected_fg_color {{ .palette.bg.editor }};
+
+@define-color insensitive_bg_color {{ .palette.bg.element_disabled }};
+@define-color insensitive_fg_color {{ .palette.fg.disabled }};
+@define-color insensitive_base_color {{ .palette.bg.surface }};
+@define-color unfocused_insensitive_color {{ .palette.fg.disabled }};
+
+@define-color theme_unfocused_bg_color {{ .palette.bg.surface }};
+@define-color theme_unfocused_fg_color {{ .palette.fg.muted }};
+@define-color theme_unfocused_base_color {{ .palette.bg.editor }};
+@define-color theme_unfocused_text_color {{ .palette.fg.primary }};
+@define-color theme_unfocused_selected_bg_color {{ .palette.bg.element_selected }};
+@define-color theme_unfocused_selected_fg_color {{ .palette.fg.primary }};
+
+@define-color borders {{ .palette.border.default }};
+@define-color unfocused_borders {{ .palette.border.variant }};
+
+@define-color content_view_bg {{ .palette.bg.editor }};
+@define-color text_view_bg {{ .palette.bg.editor }};
+
+@define-color warning_color {{ .palette.state.warning }};
+@define-color error_color {{ .palette.state.error }};
+@define-color success_color {{ .palette.state.success }};
+
+@define-color wm_bg_a {{ .palette.bg.titlebar }};
+@define-color wm_bg_b {{ .palette.bg.titlebar }};
+@define-color wm_border {{ .palette.border.default }};
+@define-color wm_borders_edge {{ .palette.bg.editor }};
+@define-color wm_highlight {{ .palette.bg.editor }};
+@define-color wm_shadow rgba({{ .palette.shade.wm_shadow.r }}, {{ .palette.shade.wm_shadow.g }}, {{ .palette.shade.wm_shadow.b }}, {{ .palette.shade.wm_shadow.alpha }});
+@define-color wm_title {{ .palette.fg.primary }};
+@define-color wm_unfocused_title {{ .palette.fg.muted }};
+
+window,
+window.background,
+.background,
+dialog,
+messagedialog {
+  background-color: {{ .palette.bg.surface }};
+  color: {{ .palette.fg.primary }};
+}
+
+headerbar,
+headerbar.default-decoration,
+.titlebar:not(headerbar) {
+  background-image: none;
+  background-color: {{ .palette.bg.titlebar }};
+  color: {{ .palette.fg.primary }};
+  border-color: {{ .palette.border.default }};
+  box-shadow: none;
+}
+
+headerbar:backdrop,
+headerbar.default-decoration:backdrop,
+.titlebar:not(headerbar):backdrop {
+  background-image: none;
+  background-color: {{ .palette.bg.titlebar_inactive }};
+  color: {{ .palette.fg.muted }};
+  border-color: {{ .palette.border.variant }};
+}
+
+entry,
+entry text,
+spinbutton:not(.vertical),
+textview,
+textview text,
+treeview.view,
+iconview,
+.view {
+  background-color: {{ .palette.bg.editor }};
+  color: {{ .palette.fg.editor }};
+}
+
+entry,
+spinbutton:not(.vertical) {
+  border-color: {{ .palette.border.default }};
+}
+
+entry:focus,
+entry:focus-within,
+spinbutton:not(.vertical):focus-within {
+  border-color: {{ .palette.border.focused }};
+}
+
+entry selection,
+textview text selection,
+label selection,
+treeview.view:selected,
+list row:selected,
+flowbox flowboxchild:selected,
+menuitem:hover,
+modelbutton:hover {
+  background-color: {{ .palette.accent.primary }};
+  color: {{ .palette.bg.editor }};
+}
+
+.sidebar,
+placessidebar,
+placessidebar list,
+stacksidebar,
+stacksidebar list {
+  background-color: {{ .palette.bg.panel }};
+  color: {{ .palette.fg.primary }};
+}
+
+popover,
+popover.background,
+popover contents,
+menu,
+.menu,
+.context-menu {
+  background-color: {{ .palette.bg.editor }};
+  color: {{ .palette.fg.primary }};
+  border-color: {{ .palette.border.default }};
+}
+
+tooltip,
+tooltip.background {
+  background-color: {{ .palette.fg.primary }};
+  color: {{ .palette.bg.editor }};
+}
+
+scrollbar,
+scrollbar.overlay-indicator {
+  background-color: {{ .palette.bg.surface }};
+  border-color: {{ .palette.border.default }};
+}
+
+scrollbar slider {
+  background-color: {{ .palette.editor.scrollbar_thumb.rgb }};
+}
+
+scrollbar slider:hover {
+  background-color: {{ .palette.fg.placeholder }};
+}
+
+separator {
+  background-color: {{ .palette.border.default }};
+}
+
+button.suggested-action {
+  background-image: none;
+  background-color: {{ .palette.accent.primary }};
+  color: {{ .palette.bg.editor }};
+  border-color: {{ .palette.accent.primary }};
+}
+
+button.destructive-action {
+  background-image: none;
+  background-color: {{ .palette.state.error }};
+  color: {{ .palette.bg.editor }};
+  border-color: {{ .palette.state.error }};
+}
+
+infobar.warning > revealer > box {
+  background-color: {{ .palette.state.warning }};
+  color: {{ .palette.bg.editor }};
+}
+
+infobar.error > revealer > box {
+  background-color: {{ .palette.state.error }};
+  color: {{ .palette.bg.editor }};
+}

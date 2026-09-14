@@ -1,0 +1,42 @@
+#!/bin/bash
+# Print a label for the link that is actually carrying traffic, or nothing at
+# all when there is none. The bar shows this verbatim.
+set -eu
+
+label_for() {
+        local dev=$1
+
+        if [[ -e /sys/class/net/$dev/wireless ]]; then
+                iw dev "$dev" link 2>/dev/null |
+                        awk '/^[[:space:]]*SSID: /{ sub(/^[[:space:]]*SSID: /, ""); print; exit }'
+        else
+                echo ethernet
+        fi
+}
+
+# Whatever holds the default route wins - that is the link in use when both
+# wifi and ethernet are up. A wireguard tunnel holds it too while the VPN is
+# on, and has no /device, so those fall through to the scan below and the
+# physical link underneath gets reported instead.
+for dev in $(ip -4 route show default 2>/dev/null | awk '{ print $5 }'); do
+        [[ -e /sys/class/net/$dev/device ]] || continue
+
+        label=$(label_for "$dev")
+        [[ -n $label ]] || continue
+
+        echo "$label"
+        exit 0
+done
+
+for path in /sys/class/net/*; do
+        dev=${path##*/}
+
+        [[ -e $path/device ]] || continue
+        [[ $(cat "$path/operstate" 2>/dev/null) == up ]] || continue
+
+        label=$(label_for "$dev")
+        [[ -n $label ]] || continue
+
+        echo "$label"
+        exit 0
+done

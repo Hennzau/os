@@ -1,0 +1,11 @@
+# Applications - the heavy part of the image (LibreOffice, Firefox and
+# Electron alone are ~1 GB): drop lines here first if /usr gets tight.
+alacritty
+firefox
+nautilus
+gnome-disk-utility
+gnome-system-monitor
+libreoffice-fresh
+element-desktop
+discord
+jolt

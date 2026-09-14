@@ -1,0 +1,471 @@
+palette:
+    bg:
+        canvas: "#dcdcdd"
+        surface: "#ebebec"
+        elevated: "#ebebec"
+        editor: "#fafafa"
+        toolbar: "#fafafa"
+        titlebar: "#dcdcdd"
+        titlebar_inactive: "#ebebec"
+        statusbar: "#dcdcdd"
+        tabbar: "#ebebec"
+        tab_active: "#fafafa"
+        tab_inactive: "#ebebec"
+        panel: "#ebebec"
+        gutter: "#fafafa"
+        terminal: "#fafafa"
+
+        element: "#ebebec"
+        element_hover: "#dfdfe0"
+        element_active: "#cacaca"
+        element_selected: "#cacaca"
+        element_disabled: "#ebebec"
+
+        ghost:
+            rgba: "#00000000"
+            rgb: "#fafafa"
+            alpha: 0.0
+            r: 0
+            g: 0
+            b: 0
+        ghost_hover: "#dfdfe0"
+        ghost_active: "#cacaca"
+        ghost_selected: "#cacaca"
+        ghost_disabled: "#ebebec"
+
+        editor_subheader: "#ebebec"
+        editor_active_line:
+            rgba: "#ebebecbf"
+            rgb: "#efeff0"
+            alpha: 0.749
+            r: 235
+            g: 235
+            b: 236
+        editor_highlighted_line: "#ebebec"
+
+    fg:
+        primary: "#242529"
+        muted: "#58585a"
+        placeholder: "#7e8086"
+        disabled: "#7e8086"
+        accent: "#5c78e2"
+        link_hover: "#5c78e2"
+
+        editor: "#242529"
+        terminal: "#2a2c33"
+        terminal_bright: "#2a2c33"
+        terminal_dim: "#bbbbbb"
+
+        line_number: "#b4b4bb"
+        line_number_active: "#44454b"
+        line_number_hover: "#61616b"
+        invisible: "#b4b4bb"
+
+        comment: "#a2a3a7"
+        comment_doc: "#7c7e86"
+
+    icon:
+        primary: "#242529"
+        muted: "#58585a"
+        placeholder: "#58585a"
+        disabled: "#7e8086"
+        accent: "#5c78e2"
+
+    border:
+        default: "#c9c9ca"
+        variant: "#dfdfe0"
+        focused: "#7d82e8"
+        selected: "#cbcdf6"
+        disabled: "#d3d3d4"
+        transparent:
+            rgba: "#00000000"
+            rgb: "#fafafa"
+            alpha: 0.0
+            r: 0
+            g: 0
+            b: 0
+
+    accent:
+        primary: "#5c78e2"
+        secondary: "#7274a7"
+
+        gradient_from: "#5c78e2"
+        gradient_to: "#984ea5"
+        gradient_from_soft:
+            rgba: "#5c78e259"
+            rgb: "#c3cdf2"
+            alpha: 0.349
+            r: 92
+            g: 120
+            b: 226
+        gradient_to_soft:
+            rgba: "#984ea559"
+            rgb: "#d8bedc"
+            alpha: 0.349
+            r: 152
+            g: 78
+            b: 165
+        hover:
+            rgba: "#5c79e266"
+            rgb: "#bbc6f0"
+            alpha: 0.4
+            r: 92
+            g: 121
+            b: 226
+        active_match:
+            rgba: "#d0a92366"
+            rgb: "#e9daa4"
+            alpha: 0.4
+            r: 208
+            g: 169
+            b: 35
+
+    syntax:
+        primary: "#242529"
+
+        attribute: "#5c78e2"
+        boolean: "#ad6e25"
+        constant: "#c18401"
+        constructor: "#5c78e2"
+        embedded: "#242529"
+        emphasis: "#5c78e2"
+        emphasis_strong: "#ad6e25"
+        enum: "#3882b7"
+        function: "#5b79e3"
+        hint: "#7274a7"
+        keyword: "#a449ab"
+        label: "#5c78e2"
+        link_text: "#5b79e3"
+        link_uri: "#3882b7"
+        namespace: "#242529"
+        number: "#ad6e25"
+        operator: "#3882b7"
+        predictive: "#9b9ec6"
+        preproc: "#a449ab"
+        property: "#d3604f"
+        punctuation: "#242529"
+        punctuation_bracket: "#4d4f52"
+        punctuation_delimiter: "#4d4f52"
+        punctuation_list_marker: "#d3604f"
+        punctuation_markup: "#d3604f"
+        punctuation_special: "#b92b46"
+        selector: "#669f59"
+        selector_pseudo: "#5c78e2"
+        string: "#649f57"
+        string_escape: "#7c7e86"
+        string_regex: "#ad6e26"
+        string_special: "#ad6e26"
+        string_special_symbol: "#ad6e26"
+        tag: "#5c78e2"
+        text_literal: "#649f57"
+        title: "#d3604f"
+        type: "#3882b7"
+        variable: "#242529"
+        variable_parameter: "#d3604f"
+        variable_special: "#ad6e25"
+        variant: "#5b79e3"
+
+        diff_added: "#50a14f"
+        diff_removed: "#e45649"
+
+    state:
+        error: "#d36151"
+        warning: "#a48819"
+        success: "#669f59"
+        info: "#5c78e2"
+        hint: "#7274a7"
+        predictive: "#9b9ec6"
+
+        deleted: "#d36151"
+        modified: "#a48819"
+        renamed: "#5c78e2"
+        created: "#669f59"
+        conflict: "#a48819"
+        hidden: "#7e8086"
+        ignored: "#7e8086"
+        unreachable: "#58585a"
+
+    state_bg:
+        error: "#fbdfd9"
+        warning: "#faf2e6"
+        success: "#dfeadb"
+        info: "#e2e2fa"
+        hint: "#e2e2fa"
+        predictive: "#dfeadb"
+
+        conflict: "#faf2e6"
+        created: "#dfeadb"
+        deleted: "#fbdfd9"
+        hidden: "#dcdcdd"
+        ignored: "#dcdcdd"
+        modified: "#faf2e6"
+        renamed: "#e2e2fa"
+        unreachable: "#dcdcdd"
+
+    state_border:
+        error: "#f6c6bd"
+        warning: "#f4e7d1"
+        success: "#c8dcc1"
+        info: "#cbcdf6"
+        hint: "#cbcdf6"
+        predictive: "#c8dcc1"
+
+        conflict: "#f4e7d1"
+        created: "#c8dcc1"
+        deleted: "#f6c6bd"
+        hidden: "#d3d3d4"
+        ignored: "#c9c9ca"
+        modified: "#f4e7d1"
+        renamed: "#cbcdf6"
+        unreachable: "#c9c9ca"
+
+    ansi:
+        black: "#000000"
+        bright_black: "#000000"
+        dim_black: "#555555"
+
+        red: "#de3e35"
+        bright_red: "#de3e35"
+        dim_red: "#9c2b26"
+
+        green: "#3f953a"
+        bright_green: "#3f953a"
+        dim_green: "#2b6927"
+
+        yellow: "#d2b67c"
+        bright_yellow: "#d2b67c"
+        dim_yellow: "#a48c5a"
+
+        blue: "#2f5af3"
+        bright_blue: "#2f5af3"
+        dim_blue: "#2140ab"
+
+        magenta: "#950095"
+        bright_magenta: "#a00095"
+        dim_magenta: "#6a006a"
+
+        cyan: "#0997b3"
+        bright_cyan: "#0bbcd6"
+        dim_cyan: "#0a7b92"
+
+        white: "#bbbbbb"
+        bright_white: "#ffffff"
+        dim_white: "#888888"
+
+    editor:
+        wrap_guide:
+            rgba: "#383a410d"
+            rgb: "#f0f0f1"
+            alpha: 0.051
+            r: 56
+            g: 58
+            b: 65
+        active_wrap_guide:
+            rgba: "#383a411a"
+            rgb: "#e6e6e7"
+            alpha: 0.102
+            r: 56
+            g: 58
+            b: 65
+
+        document_highlight_read:
+            rgba: "#5c78e225"
+            rgb: "#e3e7f7"
+            alpha: 0.145
+            r: 92
+            g: 120
+            b: 226
+        document_highlight_write:
+            rgba: "#a3a3a466"
+            rgb: "#d7d7d8"
+            alpha: 0.4
+            r: 163
+            g: 163
+            b: 164
+
+        search_match:
+            rgba: "#5c79e266"
+            rgb: "#bbc6f0"
+            alpha: 0.4
+            r: 92
+            g: 121
+            b: 226
+        search_active_match:
+            rgba: "#d0a92366"
+            rgb: "#e9daa4"
+            alpha: 0.4
+            r: 208
+            g: 169
+            b: 35
+
+        drop_target:
+            rgba: "#7e808780"
+            rgb: "#bcbdc0"
+            alpha: 0.502
+            r: 126
+            g: 128
+            b: 135
+
+        scrollbar_thumb:
+            rgba: "#383a414c"
+            rgb: "#c0c1c3"
+            alpha: 0.298
+            r: 56
+            g: 58
+            b: 65
+        scrollbar_thumb_hover: "#dfdfe0"
+        scrollbar_thumb_border: "#dfdfe0"
+        scrollbar_track:
+            rgba: "#00000000"
+            rgb: "#fafafa"
+            alpha: 0.0
+            r: 0
+            g: 0
+            b: 0
+        scrollbar_track_border: "#eeeeee"
+
+    cursor:
+        blue: "#5c78e2"
+        purple: "#984ea5"
+        orange: "#ad6e26"
+        magenta: "#a349ab"
+        cyan: "#3a82b7"
+        red: "#d36151"
+        yellow: "#a48819"
+        green: "#669f59"
+
+    cursor_bg:
+        blue: "#5c78e2"
+        purple: "#984ea5"
+        orange: "#ad6e26"
+        magenta: "#a349ab"
+        cyan: "#3a82b7"
+        red: "#d36151"
+        yellow: "#dec184"
+        green: "#669f59"
+
+    cursor_selection:
+        blue:
+            rgba: "#5c78e23d"
+            rgb: "#d4dbf4"
+            alpha: 0.239
+            r: 92
+            g: 120
+            b: 226
+        purple:
+            rgba: "#984ea53d"
+            rgb: "#e3d1e6"
+            alpha: 0.239
+            r: 152
+            g: 78
+            b: 165
+        orange:
+            rgba: "#ad6e263d"
+            rgb: "#e8d9c7"
+            alpha: 0.239
+            r: 173
+            g: 110
+            b: 38
+        magenta:
+            rgba: "#a349ab3d"
+            rgb: "#e5d0e7"
+            alpha: 0.239
+            r: 163
+            g: 73
+            b: 171
+        cyan:
+            rgba: "#3a82b73d"
+            rgb: "#ccddea"
+            alpha: 0.239
+            r: 58
+            g: 130
+            b: 183
+        red:
+            rgba: "#d361513d"
+            rgb: "#f1d5d2"
+            alpha: 0.239
+            r: 211
+            g: 97
+            b: 81
+        yellow:
+            rgba: "#dec1843d"
+            rgb: "#f3ecde"
+            alpha: 0.239
+            r: 222
+            g: 193
+            b: 132
+        green:
+            rgba: "#669f593d"
+            rgb: "#d7e4d3"
+            alpha: 0.239
+            r: 102
+            g: 159
+            b: 89
+
+    misc:
+        black: "#000000"
+        white: "#ffffff"
+        transparent:
+            rgba: "#00000000"
+            rgb: "#fafafa"
+            alpha: 0.0
+            r: 0
+            g: 0
+            b: 0
+
+    vcs:
+        added: "#27a657"
+        modified: "#d3b020"
+        deleted: "#e06c76"
+
+        word_added:
+            rgba: "#2ea04859"
+            rgb: "#b3dbbc"
+            alpha: 0.349
+            r: 46
+            g: 160
+            b: 72
+        word_deleted:
+            rgba: "#f85149cc"
+            rgb: "#f8736c"
+            alpha: 0.8
+            r: 248
+            g: 81
+            b: 73
+
+    shade:
+        subtle:
+            rgba: "#24252912"
+            rgb: "#ebebeb"
+            alpha: 0.07
+            r: 36
+            g: 37
+            b: 41
+        medium:
+            rgba: "#2425291f"
+            rgb: "#e0e0e1"
+            alpha: 0.12
+            r: 36
+            g: 37
+            b: 41
+        strong:
+            rgba: "#2425292e"
+            rgb: "#d3d4d4"
+            alpha: 0.18
+            r: 36
+            g: 37
+            b: 41
+        shadow:
+            rgba: "#24252926"
+            rgb: "#dadadb"
+            alpha: 0.15
+            r: 36
+            g: 37
+            b: 41
+        wm_shadow:
+            rgba: "#24252940"
+            rgb: "#c4c5c6"
+            alpha: 0.25
+            r: 36
+            g: 37
+            b: 41

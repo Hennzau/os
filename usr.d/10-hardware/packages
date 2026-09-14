@@ -4,6 +4,9 @@ pipewire
 pipewire-pulse
 pipewire-alsa
 wireplumber
+# Realtime scheduling for pipewire's audio threads, asked for over D-Bus;
+# without it pipewire logs "RTKit error" and runs at normal priority.
+rtkit
 
 iwd
 

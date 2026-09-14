@@ -1,0 +1,2 @@
+# Removable media mounted on insertion, for the logged-in user.
+enable udiskie.service

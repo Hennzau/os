@@ -1,0 +1,56 @@
+output "Virtual-1" {
+    scale 1.75
+}
+
+input {
+    keyboard { xkb { layout "fr"; }; }
+
+    touchpad {
+        tap
+        natural-scroll
+        click-method "clickfinger"
+    }
+
+    disable-power-key-handling
+}
+
+layout {
+    gaps 0
+    background-color "transparent"
+
+    focus-ring { off; }
+    border { off; }
+}
+
+prefer-no-csd
+
+hotkey-overlay { skip-at-startup; }
+
+spawn-at-startup "elvos-background"
+spawn-at-startup "elvos-shell-login"
+
+window-rule {
+    match title="^elvOS Login$"
+
+    open-floating true
+    open-focused true
+    geometry-corner-radius 12
+    clip-to-geometry true
+}
+
+layer-rule {
+    match namespace="^elvos-background$"
+    place-within-backdrop true
+}
+
+binds {
+    Mod+I { spawn-sh "systemctl suspend"; }
+    Mod+P { power-off-monitors; }
+    Mod+Shift+P { power-off-monitors; }
+
+    XF86AudioRaiseVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+"; }
+    XF86AudioLowerVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-"; }
+    XF86AudioMute { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle"; }
+    XF86MonBrightnessUp { spawn "brightnessctl" "set" "5%+"; }
+    XF86MonBrightnessDown { spawn "brightnessctl" "set" "5%-"; }
+}

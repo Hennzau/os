@@ -1,0 +1,3 @@
+#!/bin/bash
+exec flock -n "${XDG_RUNTIME_DIR:-/tmp}/elvos-lock.lock" \
+        quickshell -p /usr/share/quickshell/desktop/lock.qml "$@"

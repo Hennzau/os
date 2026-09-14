@@ -1,0 +1,30 @@
+#!/bin/bash
+set -eu -o pipefail
+
+pw-dump | python3 -c '
+import json, sys
+
+graph = json.load(sys.stdin)
+
+routes = {}
+for obj in graph:
+    if obj.get("type") != "PipeWire:Interface:Device":
+        continue
+    for route in obj.get("info", {}).get("params", {}).get("Route", []):
+        if route.get("available") == "no":
+            continue
+        routes.setdefault(obj["id"], set()).add(route.get("description"))
+
+for obj in graph:
+    if obj.get("type") != "PipeWire:Interface:Node":
+        continue
+    props = obj.get("info", {}).get("props", {})
+    if props.get("media.class") not in ("Audio/Sink", "Audio/Source"):
+        continue
+    try:
+        device = int(props.get("device.id"))
+    except (TypeError, ValueError):
+        continue
+    if props.get("device.profile.description") in routes.get(device, ()):
+        print(props.get("node.name"))
+'

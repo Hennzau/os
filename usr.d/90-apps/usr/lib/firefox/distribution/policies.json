@@ -1,0 +1,191 @@
+{
+  "policies": {
+    "AIControls": {
+      "Default": {
+        "Value": "blocked",
+        "Locked": true
+      }
+    },
+    "AutofillAddressEnabled": false,
+    "AutofillCreditCardEnabled": false,
+    "DNSOverHTTPS": {
+      "Enabled": false,
+      "Locked": true
+    },
+    "DisableAppUpdate": true,
+    "DisableFirefoxStudies": true,
+    "DisableFormHistory": true,
+    "DisablePocket": true,
+    "DisableTelemetry": true,
+    "DisplayBookmarksToolbar": "never",
+    "DontCheckDefaultBrowser": true,
+    "EnableTrackingProtection": {
+      "Value": true,
+      "Cryptomining": true,
+      "Fingerprinting": true,
+      "Locked": false
+    },
+    "ExtensionSettings": {
+      "uBlock0@raymondhill.net": {
+        "installation_mode": "normal_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi",
+        "default_area": "navbar"
+      },
+      "78272b6fa58f4a1abaac99321d503a20@proton.me": {
+        "installation_mode": "normal_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/proton-pass/latest.xpi",
+        "default_area": "navbar"
+      },
+      "vpn@proton.ch": {
+        "installation_mode": "normal_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/proton-vpn-firefox-extension/latest.xpi",
+        "default_area": "navbar"
+      }
+    },
+    "FirefoxHome": {
+      "Search": false,
+      "TopSites": false,
+      "SponsoredTopSites": false,
+      "Highlights": false,
+      "Pocket": false,
+      "Stories": false,
+      "SponsoredPocket": false,
+      "SponsoredStories": false,
+      "Snippets": false,
+      "Weather": false,
+      "Locked": false
+    },
+    "FirefoxSuggest": {
+      "WebSuggestions": false,
+      "SponsoredSuggestions": false,
+      "ImproveSuggest": false,
+      "Locked": true
+    },
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "PDFjs": {
+      "Enabled": true
+    },
+    "PasswordManagerEnabled": false,
+    "Permissions": {
+      "Notifications": {
+        "BlockNewRequests": true,
+        "Locked": false
+      }
+    },
+    "Preferences": {
+      "browser.urlbar.suggest.history": {
+        "Value": false,
+        "Status": "default"
+      },
+      "browser.urlbar.suggest.topsites": {
+        "Value": false,
+        "Status": "default"
+      },
+      "browser.urlbar.suggest.recentsearches": {
+        "Value": false,
+        "Status": "default"
+      },
+      "browser.newtabpage.activity-stream.newtabWallpapers.enabled": {
+        "Value": false,
+        "Status": "default"
+      },
+      "browser.newtabpage.activity-stream.logowordmark.alwaysVisible": {
+        "Value": false,
+        "Status": "default"
+      },
+      "browser.newtabpage.activity-stream.discoverystream.promoCard.visible": {
+        "Value": false,
+        "Status": "default"
+      }
+    },
+    "SearchEngines": {
+      "Default": "DuckDuckGo Safe",
+      "Remove": [
+        "DuckDuckGo",
+        "Google",
+        "Bing",
+        "eBay",
+        "Perplexity",
+        "Reddit",
+        "YouTube"
+      ],
+      "Add": [
+        {
+          "Name": "DuckDuckGo Safe",
+          "URLTemplate": "https://safe.duckduckgo.com/?q={searchTerms}",
+          "SuggestURLTemplate": "https://safe.duckduckgo.com/ac/?q={searchTerms}&type=list",
+          "Method": "GET",
+          "Alias": "@ddg",
+          "Description": "DuckDuckGo (safe-search host, matches AdGuard Family DNS)",
+          "IconURL": "https://duckduckgo.com/favicon.ico"
+        },
+        {
+          "Name": "Arch Packages",
+          "URLTemplate": "https://archlinux.org/packages/?q={searchTerms}",
+          "Method": "GET",
+          "Alias": "@pkg",
+          "Description": "Arch Linux official repositories",
+          "IconURL": "https://archlinux.org/static/favicon.51c13517c44c.png"
+        },
+        {
+          "Name": "Arch Wiki",
+          "URLTemplate": "https://wiki.archlinux.org/index.php?search={searchTerms}",
+          "Method": "GET",
+          "Alias": "@wiki",
+          "Description": "ArchWiki",
+          "IconURL": "https://wiki.archlinux.org/favicon.ico"
+        },
+        {
+          "Name": "AUR",
+          "URLTemplate": "https://aur.archlinux.org/packages?K={searchTerms}",
+          "Method": "GET",
+          "Alias": "@aur",
+          "Description": "Arch User Repository",
+          "IconURL": "https://aur.archlinux.org/static/favicon.ico"
+        },
+        {
+          "Name": "crates.io",
+          "URLTemplate": "https://crates.io/search?q={searchTerms}",
+          "Method": "GET",
+          "Alias": "@crates",
+          "Description": "Rust package registry",
+          "IconURL": "https://crates.io/favicon.ico"
+        },
+        {
+          "Name": "docs.rs",
+          "URLTemplate": "https://docs.rs/releases/search?query={searchTerms}",
+          "Method": "GET",
+          "Alias": "@docs",
+          "Description": "Rust crate documentation",
+          "IconURL": "https://docs.rs/-/static/favicon.ico"
+        },
+        {
+          "Name": "GitHub",
+          "URLTemplate": "https://github.com/search?q={searchTerms}",
+          "Method": "GET",
+          "Alias": "@gh",
+          "Description": "GitHub code and repositories",
+          "IconURL": "https://github.com/favicon.ico"
+        },
+        {
+          "Name": "MDN",
+          "URLTemplate": "https://developer.mozilla.org/en-US/search?q={searchTerms}",
+          "Method": "GET",
+          "Alias": "@mdn",
+          "Description": "MDN Web Docs",
+          "IconURL": "https://developer.mozilla.org/favicon.ico"
+        }
+      ]
+    },
+    "UserMessaging": {
+      "WhatsNew": false,
+      "ExtensionRecommendations": false,
+      "FeatureRecommendations": false,
+      "UrlbarInterventions": false,
+      "SkipOnboarding": true,
+      "MoreFromMozilla": false,
+      "Locked": false
+    }
+  }
+}

@@ -334,11 +334,17 @@ export def hermetic [tree: path] {
     step "making /usr hermetic"
     set-os-release $tree
 
-    ^systemctl --root $tree preset-all out> /dev/null err> /dev/null
     # And the per-user units (pipewire and friends): --global writes the same
     # kind of symlinks under /etc/systemd/user, which relocate-enablement
-    # moves into /usr as well.
-    ^systemctl --root $tree --global preset-all out> /dev/null err> /dev/null
+    # moves into /usr as well. Quiet, but a failure says why: with stderr
+    # thrown away, a masked unit once stopped the build with no message.
+    for scope in [[] [--global]] {
+        let r = (^systemctl --root $tree ...$scope preset-all | complete)
+        if $r.exit_code != 0 {
+            let why = ($r.stderr | lines | where { $in !~ '^(Created symlink|Removed) ' } | str join "\n")
+            error make { msg: $"systemctl ($scope | str join ' ') preset-all failed:\n($why)" }
+        }
+    }
     relocate-enablement $tree
 
     # pacman's database describes what is in /usr, so it moves with /usr; a

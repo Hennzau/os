@@ -1,0 +1,28 @@
+font={{ .font.sans }} {{ .font.size.ui }}
+background-color={{ .palette.bg.elevated }}f2
+text-color={{ .palette.fg.primary }}
+border-color={{ .palette.accent.primary }}
+progress-color=over {{ .palette.bg.element_selected }}
+border-size=2
+border-radius=10
+padding=14
+margin=12
+width=380
+default-timeout=6000
+ignore-timeout=1
+max-visible=5
+anchor=top-right
+layer=overlay
+icons=1
+max-icon-size=48
+markup=1
+actions=1
+
+[urgency=low]
+border-color={{ .palette.border.default }}
+text-color={{ .palette.fg.muted }}
+default-timeout=4000
+
+[urgency=critical]
+border-color={{ .palette.state.error }}
+default-timeout=0

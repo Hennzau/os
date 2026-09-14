@@ -46,8 +46,14 @@ and prefer lean code whose comments explain reasons rather than restate code.
   linked back into `/var` by tmpfiles.
 - **One key signs everything** (`keys/db.key` + `db.crt`): UKI, systemd-boot,
   verity root hash, and the PK/KEK/db enrollment files — mkosi does the same.
-- The user considered a user-tmpfiles split for placement and **rejected it**;
-  keep things in one mechanism unless they ask. They also chose `/usr/lib/…`
+- **User config files** (decided 2026-09-13, reversing an earlier "no"): a
+  templated file is rendered into /usr and put in homes by **user-tmpfiles**
+  (**`/usr/share/user-tmpfiles.d/`** - not /usr/lib, which user-tmpfiles never reads: `systemd-tmpfiles --user --cat-config` lists only /usr/share; `%h/...`), run by the user manager's
+  systemd-tmpfiles-setup.service at login (enabled from /usr: the user-preset
+  `disable *` does not touch it). `L` (not `L+`, which would replace a file
+  the user made) for files the app only reads, so updates arrive; `C` for
+  files the app itself rewrites. Where an app reads a system-wide path
+  natively (/etc/xdg, linked to the factory), that beats a per-user link. They also chose `/usr/lib/…`
   for vendor config with an `/etc` override layer, per systemd's convention.
 
 ## Layout
@@ -55,7 +61,8 @@ and prefer lean code whose comments explain reasons rather than restate code.
 ```
 elv                 entry point (nushell script, subcommands)
 image.nuon          id / version / mirror
-vars/               YAML values for layer *.tmpl files (optional)
+vars/               YAML values for layer *.tmpl files: palette.yml (elvOS's,
+                    verbatim), fonts.yml (elvOS's, mono -> IBM Plex Mono)
 usr.d/NN-name/      layers: packages + usr/
 lib/common.nu       paths, config, ns-run (the user-namespace runner)
 lib/ns.nu           runs *inside* the namespace; mounts API fs into a tree
@@ -690,7 +697,7 @@ one day - `/usr/share/qmk/userspace`, `/usr/share/distrobox/qmk.ini`
   prompt. The default network is not autostarted (as on Arch).
 - **70-qmk**: QMK runs in a **distrobox**, not from /usr - Arch's qmk pulls
   arm-none-eabi-gcc (1.9 GB!), -newlib, avr-gcc, avr-libc: ~2.6 GB, which
-  had taken /usr from 1.4 to 2.9 GB of the fixed 4 GB slot. `/usr/bin/qmk`
+  had taken /usr from 1.4 to 2.9 GB of the then 4 GB slot. `/usr/bin/qmk`
   (bash) builds the box on first use - `distrobox assemble create --file
   /usr/share/distrobox/qmk.ini` (archlinux image,
   `additional_packages="qmk"`, the userspace volume at the same path,
@@ -724,8 +731,73 @@ one day - `/usr/share/qmk/userspace`, `/usr/share/distrobox/qmk.ini`
   (hung vmctl for 25 min). If the hvc0 shell is stuck, the guest agent still
   answers: guest-exec on `<workspace>/qga.sock` (scratch helper: one JSON
   line per call, then guest-exec-status until exited).
+- **User-tmpfiles live in /usr/share/user-tmpfiles.d.** The first desktop
+  build had them in /usr/lib/user-tmpfiles.d: ignored, so niri found no
+  config at login and wrote its own 27 KB default into ~/.config/niri -
+  where `C` then never replaces it. A test user must be fresh after such a
+  fix.
 - Testing nushell autoload files: `nu -c` (even `-l`/`-i`) does not load
   vendor autoload; `nu -c "source FILE; ..."` does.
+
+## usr.d/80-desktop, 90-apps (2026-09-13)
+
+elvOS's desktop, ported. **80-desktop**: Mesa + Vulkan (radeon, virtio,
+swrast), niri, xwayland-satellite, Quickshell, greetd, fuzzel, mako,
+wl-mirror, portals (gnome, gtk), xdg-user-dirs-gtk, ibus, gnome-keyring,
+udiskie. **90-apps**: alacritty, firefox, nautilus, gnome-disk-utility,
+gnome-system-monitor, libreoffice-fresh, element-desktop, discord, jolt.
+/usr 3.3 GB (erofs). The slots were 4 GB; **grown to 8 GB** (2026-09-13,
+the user's choice) before any install, since a slot's size is fixed once a
+machine is installed. 90-apps is the part to drop if it ever gets tight.
+Verified: first boot grows A to 8G and makes B 8G (verity stays 256M: the
+hash tree for 8G is ~65 MB); `systemd-repart --dry-run=yes --empty=allow
+--definitions=/usr/lib/repart.sysinstall.d /dev/vdb` plans an 8G /usr.
+- Where things went (no `elvos` directories; native paths first):
+  - the Quickshell QML → `/usr/share/quickshell/desktop/` (`-p` paths in the
+    `elvos-*` scripts, which keep their names); `theme/Theme.qml.tmpl` from
+    the palette (16 colours map to exact palette keys; `elevated` →
+    `bg.editor`) and fonts; wallpaper → `/usr/share/backgrounds/wallpaper.jpg`.
+  - greetd: `/usr/share/greetd/{config.toml,niri.kdl}`, a drop-in
+    `ExecStart=greetd --config /usr/share/greetd/config.toml`; PAM
+    `greetd` in the factory /etc (pam.d is linked).
+  - fuzzel, alacritty (both read `$XDG_CONFIG_DIRS` - checked in the host
+    binaries) and GTK's settings.ini → factory `/etc/xdg/...` templates.
+    mako (no XDG_CONFIG_DIRS), GTK's gtk.css (home only) and niri →
+    `/usr/share/<app>/`, linked by `/usr/share/user-tmpfiles.d/80-desktop.conf`
+    (niri's session.kdl `L`; config.kdl and monitors.kdl `C`, the user's).
+  - mimeapps.list → `/usr/share/applications/mimeapps.list` (XDG data dir,
+    native); Firefox policies/autoconfig and `mozilla.cfg.tmpl` (fonts from
+    vars) in /usr/lib/firefox; LibreOffice's xcd; environment.d for
+    MOZ_ENABLE_WAYLAND / ELECTRON_OZONE_PLATFORM_HINT; udiskie user unit
+    (user preset); the udisks rule with elv's labels (`elvos-*`, `elvos_*`,
+    `_empty`, `esp`).
+  - Not ported: elvos-configd and its service (templates + user-tmpfiles
+    replace it), zed's configs (the dev layer is deferred), qmk.ini.
+- **tty1**: greetd runs there (`vt = 1`), kmscon too (30-console). The
+  greetd drop-in has `After=` + `Conflicts=kmsconvt@tty1.service`, the
+  pattern display managers use against getty@tty1. **Do not mask
+  kmsconvt@tty1**: preset-all enables it through DefaultInstance and fails
+  on a masked unit ("Failed to preset all unit: ... is masked") - which the
+  build used to swallow (stderr to /dev/null, exit 1, no message); hermetic
+  now prints preset-all's error.
+- **VM GPU.** The window uses `virtio-vga-gl` (virgl). Headless defaults to
+  plain `virtio-vga` + `-display none`, where screendumps (vmctl screen)
+  work - but **niri needs 3D**: on plain virtio-vga it opens no /dev/dri,
+  runs with zero outputs (`niri msg outputs` empty) and draws nothing.
+  `elv vm --headless --gpu` gives virgl via `-display egl-headless`; then
+  QEMU's screendump fails "no surface" for every scanout (kmscon's too), so
+  look through niri instead: `runuser -u USER -- env XDG_RUNTIME_DIR=...
+  NIRI_SOCKET=<run>/niri.wayland-*.sock niri msg action screenshot-screen
+  --path /tmp/x.png`, then `vmctl run 'base64 -w0 /tmp/x.png'` and decode.
+- **Verified end to end** (--headless --gpu): greetd on tty1 (kmscon's tty1
+  instance stepped aside), the greeter - wallpaper, bar, "elvOS" card with
+  elvos-default-user's name filled in - then typing the password (QMP keys)
+  logs in: niri-session → niri with ~/.config/niri/config.kdl (45 B, ours)
+  including the linked session.kdl, Quickshell shell + background, mako,
+  udiskie; the user-tmpfiles links and copies all in place.
+- **rtkit** (10-hardware, 2026-09-13): pipewire logged "RTKit error:
+  ServiceUnknown" without it. D-Bus activated, no preset; verified: active,
+  "Successfully made thread ... RT at priority 20" for pipewire, 0 errors.
 
 ## Self-hosting (2026-09-12)
 
@@ -734,7 +806,7 @@ The image builds itself, and updates itself to the result. `usr.d/00-base`:
   systemd-ukify (python, pefile), erofs-utils, mtools (repart fills the vfat
   ESP with mcopy), cpio, polkit (run0), qemu-desktop + edk2-ovmf + swtpm
   (`elv vm`), git, jujutsu; iwd, curl, nano. /usr is now 1.8 GB, the erofs
-  914 MB (the slots are 4 GB).
+  914 MB (the slots were 4 GB then, 8 GB now).
 - `elvos-subid-setup` + `elvos-subid.service` (from elvOS): subuid/subgid
   ranges for regular users, which `unshare --map-auto` needs.
 - `20-wired.network` / `21-wireless.network`: DHCP (the image had no active
@@ -787,8 +859,8 @@ session inside the guest:
 - `/usr` = `/dev/mapper/usr`, erofs, `verified (with signature)`.
   The image needs Secure Boot: see "Verity signatures" below.
 - `systemctl is-system-running` → `running`, no failed units.
-- First-boot repart grows A `/usr` to 4G and creates the empty B slot
-  (16K / 256M / 4G, labels `_empty`).
+- First-boot repart grows A `/usr` to its slot size (4G then, 8G now) and
+  creates the empty B slot (16K / 256M / slot size, labels `_empty`).
 - `IMAGE_ID/IMAGE_VERSION` set. (/etc was then a full factory merge; see
   "Minimal /etc" for what it is now.)
 

@@ -1,0 +1,183 @@
+input {
+    // The firmware asserts the power-button GPIO on every s2idle wake. niri
+    // takes over the power key by default and suspends on it, so that phantom
+    // press re-suspends the machine immediately -> suspend/resume storm that
+    // wedges amdgpu's VPE block. Let logind own the power key instead.
+    // https://github.com/niri-wm/niri/issues/2233
+    disable-power-key-handling
+
+    keyboard { xkb { layout "fr"; }; }
+
+    touchpad {
+        tap
+        natural-scroll
+        dwt
+        click-method "clickfinger"
+        scroll-method "two-finger"
+        accel-profile "adaptive"
+    }
+
+    mouse { accel-profile "flat"; }
+}
+
+
+layout {
+    gaps 12
+
+    center-focused-column "never"
+
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+
+    default-column-width { proportion 0.5; }
+
+    focus-ring {
+        width 3
+        active-gradient from="{{ .palette.accent.gradient_from }}" to="{{ .palette.accent.gradient_to }}" angle=45 relative-to="workspace-view"
+        inactive-color "{{ .palette.border.default }}"
+        urgent-color "{{ .palette.state.error }}"
+    }
+
+    border {
+        off
+        width 3
+        active-color "{{ .palette.accent.primary }}"
+        inactive-color "{{ .palette.border.default }}"
+        urgent-color "{{ .palette.state.error }}"
+    }
+
+    shadow {
+        on
+        softness 24
+        spread 3
+        offset x=0 y=6
+        color "{{ .palette.shade.shadow.rgba }}"
+    }
+
+    tab-indicator {
+        hide-when-single-tab
+        place-within-column
+        gap 6
+        width 4
+        length total-proportion=0.6
+        position "left"
+        corner-radius 4
+        active-color "{{ .palette.accent.primary }}"
+        inactive-color "{{ .palette.border.default }}"
+    }
+
+    insert-hint {
+        gradient from="{{ .palette.accent.gradient_from_soft.rgba }}" to="{{ .palette.accent.gradient_to_soft.rgba }}" angle=45 relative-to="workspace-view"
+    }
+
+    background-color "transparent"
+
+    struts {
+    }
+}
+
+overview {
+    zoom 0.5
+    backdrop-color "{{ .palette.bg.canvas }}"
+}
+
+xwayland-satellite { path "/usr/bin/xwayland-satellite"; }
+
+cursor {
+    xcursor-theme "Adwaita"
+    xcursor-size 24
+    hide-when-typing
+}
+
+prefer-no-csd
+
+screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+hotkey-overlay { skip-at-startup; }
+
+spawn-at-startup "elvos-background"
+spawn-at-startup "elvos-shell"
+spawn-at-startup "mako"
+debug { honor-xdg-activation-with-invalid-serial; }
+
+window-rule { match title="^elvOS Mirror$"; open-floating true; open-focused true; geometry-corner-radius 12; clip-to-geometry true; }
+
+window-rule { geometry-corner-radius 10; clip-to-geometry true; min-width 300; min-height 300; }
+window-rule { match app-id=r#"firefox$"# title="^Picture-in-Picture$"; open-floating true; }
+window-rule { match app-id=r#"Alacritty$"#; default-column-width { proportion 0.5; }; }
+window-rule { match app-id=r#"Zed$"#; default-column-width { proportion 1.0; }; }
+
+layer-rule { match namespace="^elvos-background$"; place-within-backdrop true; }
+
+binds {
+    Mod+Shift+D { show-hotkey-overlay; }
+
+    Mod+D { spawn "fuzzel"; }
+    Mod+I { spawn-sh "elvos-lock & sleep 0.3; systemctl suspend"; }
+    Mod+Shift+I { spawn "elvos-idle-toggle"; }
+    Mod+P allow-inhibiting=false { spawn "elvos-lock"; }
+    Mod+N { spawn "elvos-mirror"; }
+    Mod+Shift+P { power-off-monitors; }
+    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+
+    XF86AudioRaiseVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+"; }
+    XF86AudioLowerVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-"; }
+    XF86AudioMute { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle"; }
+    XF86MonBrightnessUp { spawn "brightnessctl" "set" "5%+"; }
+    XF86MonBrightnessDown { spawn "brightnessctl" "set" "5%-"; }
+
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+
+    Mod+TouchpadScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+TouchpadScrollUp cooldown-ms=150 { focus-workspace-up; }
+
+    Mod+Left  { focus-column-or-monitor-left; }
+    Mod+Down  { focus-window-or-workspace-down; }
+    Mod+Up    { focus-window-or-workspace-up; }
+    Mod+Right { focus-column-or-monitor-right; }
+
+    Mod+Shift+Down  { move-window-down-or-to-workspace-down; }
+    Mod+Shift+Up    { move-window-up-or-to-workspace-up; }
+    Mod+Shift+Left  { consume-or-expel-window-left; }
+    Mod+Shift+Right { consume-or-expel-window-right; }
+
+    Mod+ampersand { focus-workspace 1; }
+    Mod+eacute { focus-workspace 2; }
+    Mod+quotedbl { focus-workspace 3; }
+    Mod+apostrophe { focus-workspace 4; }
+    Mod+parenleft { focus-workspace 5; }
+    Mod+minus { focus-workspace 6; }
+    Mod+egrave { focus-workspace 7; }
+    Mod+underscore { focus-workspace 8; }
+    Mod+ccedilla { focus-workspace 9; }
+
+    Mod+Shift+ampersand { move-window-to-workspace 1; }
+    Mod+Shift+eacute { move-window-to-workspace 2; }
+    Mod+Shift+quotedbl { move-window-to-workspace 3; }
+    Mod+Shift+apostrophe { move-window-to-workspace 4; }
+    Mod+Shift+parenleft { move-window-to-workspace 5; }
+    Mod+Shift+minus { move-window-to-workspace 6; }
+    Mod+Shift+egrave { move-window-to-workspace 7; }
+    Mod+Shift+underscore { move-window-to-workspace 8; }
+    Mod+Shift+ccedilla { move-window-to-workspace 9; }
+
+    Mod+u { set-window-width "-10%"; }
+    Mod+o { set-window-width "+10%"; }
+
+    Mod+R { maximize-column; }
+    Mod+F { fullscreen-window; }
+
+    Mod+Shift+A { close-window; }
+    Mod+Return { spawn "alacritty"; }
+    Mod+Shift+E allow-inhibiting=false { quit; }
+
+    Print { screenshot; }
+    Ctrl+Print { screenshot-screen; }
+    Alt+Print { screenshot-window; }
+}
+
+switch-events { lid-close { spawn "sh" "-c" "elvos-lock & sleep 0.3; systemctl suspend"; }; }

@@ -1,0 +1,2 @@
+#!/bin/bash
+exec quickshell -p /usr/share/quickshell/desktop/background.qml "$@"

@@ -1,0 +1,18 @@
+#!/bin/bash
+# Toggle the shell's idle inhibitor: no dimming, no suspend, "awake" in the bar.
+#
+# The shell is started from an absolute path rather than a config name, so
+# `qs ipc` has to be pointed at the same path to find the instance - a bare
+# `qs ipc call` looks for a config named "default" under ~/.config/quickshell
+# and finds nothing.
+set -eu
+
+shell=/usr/share/quickshell/desktop/shell.qml
+
+if ! state=$(quickshell -p "$shell" ipc call idle "${1:-toggle}" 2>&1); then
+        echo "${0##*/}: no shell listening on $shell" >&2
+        echo "$state" >&2
+        exit 1
+fi
+
+echo "$state"

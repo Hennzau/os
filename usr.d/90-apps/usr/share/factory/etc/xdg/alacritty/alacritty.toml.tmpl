@@ -1,0 +1,113 @@
+[general]
+live_config_reload = true
+
+[env]
+TERM = "alacritty"
+
+[window]
+padding = { x = 12, y = 12 }
+dynamic_padding = true
+opacity = 1.0
+
+[font]
+size = {{ .font.size.terminal }}.0
+normal = { family = "{{ .font.mono }}", style = "Regular" }
+bold = { family = "{{ .font.mono }}", style = "Bold" }
+italic = { family = "{{ .font.mono }}", style = "Italic" }
+bold_italic = { family = "{{ .font.mono }}", style = "Bold Italic" }
+
+[cursor]
+style = { shape = "Beam", blinking = "On" }
+unfocused_hollow = true
+
+[scrolling]
+history = 50000
+
+[selection]
+save_to_clipboard = false
+
+[[keyboard.bindings]]
+key = "Return"
+mods = "Shift"
+chars = "\u001B\r"
+
+[[keyboard.bindings]]
+key = "Back"
+mods = "Control"
+chars = "\u0017"
+
+[colors.primary]
+background = '{{ .palette.bg.terminal }}'
+foreground = '{{ .palette.fg.terminal }}'
+dim_foreground = '{{ .palette.fg.terminal_dim }}'
+bright_foreground = '{{ .palette.fg.terminal_bright }}'
+
+
+[colors.cursor]
+text = '{{ .palette.bg.terminal }}'
+cursor = '{{ .palette.accent.primary }}'
+
+
+[colors.vi_mode_cursor]
+text = '{{ .palette.bg.terminal }}'
+cursor = '{{ .palette.state.success }}'
+
+
+[colors.selection]
+text = '{{ .palette.fg.primary }}'
+background = '{{ .palette.cursor_selection.blue.rgb }}'
+
+
+[colors.search.matches]
+foreground = '{{ .palette.fg.primary }}'
+background = '{{ .palette.editor.search_match.rgb }}'
+
+
+[colors.search.focused_match]
+foreground = '{{ .palette.fg.primary }}'
+background = '{{ .palette.editor.search_active_match.rgb }}'
+
+
+[colors.footer_bar]
+foreground = '{{ .palette.fg.primary }}'
+background = '{{ .palette.bg.surface }}'
+
+
+[colors.hints.start]
+foreground = '{{ .palette.fg.primary }}'
+background = '{{ .palette.accent.active_match.rgb }}'
+
+
+[colors.hints.end]
+foreground = '{{ .palette.fg.primary }}'
+background = '{{ .palette.accent.hover.rgb }}'
+
+[colors.normal]
+black = '{{ .palette.ansi.black }}'
+red = '{{ .palette.ansi.red }}'
+green = '{{ .palette.ansi.green }}'
+yellow = '{{ .palette.ansi.yellow }}'
+blue = '{{ .palette.ansi.blue }}'
+magenta = '{{ .palette.ansi.magenta }}'
+cyan = '{{ .palette.ansi.cyan }}'
+white = '{{ .palette.ansi.white }}'
+
+[colors.bright]
+black = '{{ .palette.ansi.bright_black }}'
+red = '{{ .palette.ansi.bright_red }}'
+green = '{{ .palette.ansi.bright_green }}'
+yellow = '{{ .palette.ansi.bright_yellow }}'
+blue = '{{ .palette.ansi.bright_blue }}'
+magenta = '{{ .palette.ansi.bright_magenta }}'
+cyan = '{{ .palette.ansi.bright_cyan }}'
+white = '{{ .palette.ansi.bright_white }}'
+
+[colors.dim]
+black = '{{ .palette.ansi.dim_black }}'
+red = '{{ .palette.ansi.dim_red }}'
+green = '{{ .palette.ansi.dim_green }}'
+yellow = '{{ .palette.ansi.dim_yellow }}'
+blue = '{{ .palette.ansi.dim_blue }}'
+magenta = '{{ .palette.ansi.dim_magenta }}'
+cyan = '{{ .palette.ansi.dim_cyan }}'
+white = '{{ .palette.ansi.dim_white }}'

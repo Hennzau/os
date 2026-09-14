@@ -1,0 +1,29 @@
+# The desktop: niri, with a Quickshell shell, behind greetd. Its per-user
+# configuration comes from /usr through user-tmpfiles
+# (usr/share/user-tmpfiles.d/80-desktop.conf), or natively from /etc/xdg.
+
+# Graphics: Mesa, Vulkan for AMD, virtio (VMs) and the software fallback.
+mesa
+vulkan-radeon
+vulkan-virtio
+vulkan-swrast
+
+niri
+xwayland-satellite
+quickshell
+greetd
+fuzzel
+mako
+wl-mirror
+
+# Portals (screencast, file pickers) and XDG glue.
+xdg-desktop-portal
+xdg-desktop-portal-gnome
+xdg-desktop-portal-gtk
+xdg-user-dirs-gtk
+xdg-utils
+desktop-file-utils
+
+ibus
+gnome-keyring
+udiskie

@@ -1,0 +1,16 @@
+[Unit]
+Description=Automount removable media
+Documentation=https://github.com/coldfix/udiskie
+ConditionUser=!@system
+
+After=dbus.socket
+Requires=dbus.socket
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/udiskie --automount --notify --no-tray
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,15 @@
+# elvOS's fonts, with IBM Plex for monospace too: the image ships Plex, not
+# Lilex Nerd Font (elvOS had mono: "Lilex Nerd Font Mono", mono_ui: "Lilex
+# Nerd Font"). What these names resolve to, fallbacks included, is
+# usr.d/20-fonts' fontconfig policy.
+font:
+    mono: "IBM Plex Mono"
+    mono_ui: "IBM Plex Mono"
+    sans: "IBM Plex Sans"
+    serif: "IBM Plex Serif"
+    emoji: "Noto Color Emoji"
+
+    size:
+        ui: 11
+        terminal: 11
+        editor: 15

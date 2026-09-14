@@ -1,0 +1,36 @@
+pragma Singleton
+
+import QtQuick
+
+// The shell's colours and fonts, rendered from vars/ (palette.yml, fonts.yml)
+// at build time. Sizes are the shell's own.
+QtObject {
+    readonly property color canvas: "{{ palette.bg.canvas }}"
+    readonly property color surface: "{{ palette.bg.surface }}"
+    readonly property color panel: "{{ palette.bg.panel }}"
+    readonly property color elevated: "{{ palette.bg.editor }}"
+    readonly property color hover: "{{ palette.bg.element_hover }}"
+    readonly property color active: "{{ palette.bg.element_active }}"
+
+    readonly property color fg: "{{ palette.fg.primary }}"
+    readonly property color muted: "{{ palette.fg.muted }}"
+    readonly property color placeholder: "{{ palette.fg.placeholder }}"
+
+    readonly property color accent: "{{ palette.accent.primary }}"
+    readonly property color border: "{{ palette.border.default }}"
+    readonly property color focused: "{{ palette.border.focused }}"
+    readonly property color error: "{{ palette.state.error }}"
+    readonly property color warning: "{{ palette.state.warning }}"
+    readonly property color success: "{{ palette.state.success }}"
+
+    readonly property string fontFamily: "{{ font.sans }}"
+    readonly property string monoFamily: "{{ font.mono }}"
+
+    readonly property int barHeight: 24
+    readonly property int radius: 10
+    readonly property int radiusSmall: 6
+    readonly property int pad: 12
+    readonly property int padSmall: 6
+    readonly property int fontSmall: 11
+    readonly property int fontBase: 13
+}
