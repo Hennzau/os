@@ -1,6 +1,6 @@
 # The desktop: niri, with a Quickshell shell, behind greetd. Its per-user
-# configuration comes from /usr through user-tmpfiles
-# (usr/share/user-tmpfiles.d/80-desktop.conf), or natively from /etc/xdg.
+# configuration comes from /usr into ~/.config through user-tmpfiles
+# (usr/share/user-tmpfiles.d/80-desktop.conf).
 
 # Graphics: Mesa, Vulkan for AMD, virtio (VMs) and the software fallback.
 mesa

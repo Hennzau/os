@@ -52,8 +52,10 @@ and prefer lean code whose comments explain reasons rather than restate code.
   systemd-tmpfiles-setup.service at login (enabled from /usr: the user-preset
   `disable *` does not touch it). `L` (not `L+`, which would replace a file
   the user made) for files the app only reads, so updates arrive; `C` for
-  files the app itself rewrites. Where an app reads a system-wide path
-  natively (/etc/xdg, linked to the factory), that beats a per-user link. They also chose `/usr/lib/…`
+  files the app or the user edits (a later default arrives only if the
+  file is deleted). **Everything goes to ~/.config** (user, 2026-09-15):
+  nothing of ours in /etc/xdg, even where an app reads it natively - tools
+  read and edit the files in the home. They also chose `/usr/lib/…`
   for vendor config with an `/etc` override layer, per systemd's convention.
 
 ## Layout
@@ -771,13 +773,15 @@ hash tree for 8G is ~65 MB); `systemd-repart --dry-run=yes --empty=allow
   - greetd: `/usr/share/greetd/{config.toml,niri.kdl}`, a drop-in
     `ExecStart=greetd --config /usr/share/greetd/config.toml`; PAM
     `greetd` in the factory /etc (pam.d is linked).
-  - fuzzel, alacritty (both read `$XDG_CONFIG_DIRS` - checked in the host
-    binaries) and GTK's settings.ini → factory `/etc/xdg/...` templates.
-    mako (no XDG_CONFIG_DIRS), GTK's gtk.css (home only) and niri →
-    `/usr/share/<app>/`, linked by `/usr/share/user-tmpfiles.d/80-desktop.conf`
-    (niri's session.kdl `L`; config.kdl and monitors.kdl `C`, the user's).
-  - mimeapps.list → `/usr/share/applications/mimeapps.list` (XDG data dir,
-    native); Firefox policies/autoconfig and `mozilla.cfg.tmpl` (fonts from
+  - every per-user file → `/usr/share/<app>/`, put in ~/.config by
+    `/usr/share/user-tmpfiles.d/80-desktop.conf` (and 90-apps.conf): `C` for
+    what gets edited - niri's config.kdl and monitors.kdl, fuzzel.ini, GTK's
+    settings.ini, mimeapps.list; `L` for niri's session.kdl, mako's config,
+    GTK's gtk.css, alacritty.toml and Zed's settings/keymap/theme (the
+    user, 2026-09-15: so changes reach; Zed's settings read-only is fine). (Until 2026-09-15 fuzzel,
+    alacritty and settings.ini were factory /etc/xdg templates.)
+  - mimeapps.list's source is `/usr/share/applications/mimeapps.list` (read
+    natively too, as the XDG default); Firefox policies/autoconfig and `mozilla.cfg.tmpl` (fonts from
     vars) in /usr/lib/firefox; LibreOffice's xcd; environment.d for
     MOZ_ENABLE_WAYLAND / ELECTRON_OZONE_PLATFORM_HINT; udiskie user unit
     (user preset); the udisks rule with elv's labels (`elvos-*`, `elvos_*`,
@@ -822,8 +826,8 @@ vscode-json-languageserver, marksman, qt6-declarative (qmlls), zed. /usr
 3.3 → 5.0 GB (8 GB slot).
 - Zed: `/usr/share/zed/settings.json.tmpl` (elvOS's settings + `lsp.<id>
   .binary.path` for every server + `node.path`), elvOS's keymap and palette
-  theme; user-tmpfiles `95-dev.conf`: settings.json and keymap.json `C`
-  (Zed rewrites them from its UI), themes/elvos.json `L`.
+  theme; user-tmpfiles `95-dev.conf`: all three `L` (read-only for Zed:
+  UI changes are not saved - the user's choice, so image changes reach).
 - **Server ids** are the adapters' or extensions' `[language_servers.<id>]`:
   rust-analyzer, clangd, ty, ruff, bash-language-server (basher ext),
   yaml-language-server, json-language-server (built in); zls (zig ext),
