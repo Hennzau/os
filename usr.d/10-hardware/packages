@@ -41,6 +41,12 @@ pkcs11-provider
 # left off.
 bluez
 bluez-utils
+# For debugging an adapter: bluez-utils has bluetoothctl, btmon (HCI traffic)
+# and btmgmt; these add the old hciconfig/hcitool (Arch no longer ships
+# hcidump: btmon replaces it), and lsusb - this
+# laptop's Bluetooth is a USB device on its Realtek card.
+bluez-deprecated-tools
+usbutils
 fwupd
 
 # Talking to the host when this image is the guest (elv vm wires the channel).

@@ -4,3 +4,20 @@ nftables
 wireguard-tools
 wireless-regdb
 openssh
+
+# Looking at networks: ping, tracepath (iputils), dig (bind) and nc
+# (openbsd-netcat) come with the rest; these add traceroute and mtr, whois,
+# nmap and arp-scan, tcpdump, socat, iperf3, ethtool, wget, and the classic
+# ifconfig/netstat/arp/route (net-tools) and telnet/ftp/hostname (inetutils).
+traceroute
+mtr
+whois
+nmap
+arp-scan
+tcpdump
+socat
+iperf3
+ethtool
+wget
+net-tools
+inetutils

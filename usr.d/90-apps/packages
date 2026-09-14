@@ -9,3 +9,6 @@ libreoffice-fresh
 element-desktop
 discord
 jolt
+# Packet capture with a GUI (tshark and dumpcap come with it). Capturing as a
+# user takes the wireshark group.
+wireshark-qt

@@ -208,6 +208,15 @@ entries and `/elvos/`, and drops the `default` line. Then it asks for a key;
 - "Exiting first boot settings tool." after "Installation succeeded" is
   sysinstall's own exit text.
 
+**Menu titles of equal length** (2026-09-14, the user's wish): systemd-boot
+(boot.c) titles a UKI profile "<PRETTY_NAME> (<TITLE>)" - PRETTY_NAME first,
+IMAGE_ID/NAME only as fallbacks - and profile 0 without a TITLE as the bare
+name; duplicates get " (<version>)" appended; every title is centred in one
+column as wide as the longest. So main is `ID=main\nTITLE=Desktop` and the
+installer `TITLE=Install`: "Arch Linux (Desktop)" / "Arch Linux (Install)".
+systemd-boot's own "Reboot Into Firmware Interface" cannot be renamed
+(`auto-firmware no` would hide it); the enroll entry shows only in setup mode.
+
 **`bootctl list` shows a phantom third entry** (2026-09-13, asked about it):
 sd-boot names the profile-0 entry by the plain file name
 (`elvos_0.1.0_x86-64.efi`), bootctl names it `…efi@main` (our `.profile` has
@@ -916,6 +925,44 @@ session inside the guest:
 
 To test the same way, use `elv vm --headless` + `elv vmctl` (above), not
 fixed sleeps piped into `--serial`.
+
+## Same key and id as elvOS (2026-09-14)
+
+The user will put elv on a second laptop (reset), later this one; both
+enrolled elvOS's key. So elv now signs with **elvOS's `mkosi.key`/`mkosi.crt`**
+(`elv keys --force --key ~/elvos/mkosi/mkosi.key --cert ~/elvos/mkosi/mkosi.crt`;
+`--key/--cert` import a pair - checked to match - and rebuild the .auth
+files; replaced keys go to `keys/replaced-<date>/`, never deleted), and the
+id is **`elvOS`** (partition labels, image filters, sysupdate's %M, the
+hostname fallback all follow; the udisks rule's globs too). Version
+26.9.130 (set by the user; elvOS's last was 26.9.29). The workspace moved to
+/var/tmp/elv.os/elvOS - the old elvos one is stale.
+- Updating the *running elvOS* laptop in place was assessed, not done: its
+  /etc keeps elvOS's `L+` links into /usr/share/elvos (pam.d/greetd -
+  greeter login -, nftables.conf, ssh drop-in, environment, font policy,
+  mirrorlist), which elv's `L` lines would not replace; `elv sysupdate`
+  would also need `--definitions` (elvOS's /usr had no sysupdate.d, mkosi
+  passed its own). Slots there are 29.3 GB / 400 MB (fits). The user chose
+  a fresh install instead.
+
+## Network and debugging tools (2026-09-14)
+
+For a networking course and later Bluetooth debugging on the main laptop.
+- 40-network: traceroute, mtr, whois, nmap, arp-scan, tcpdump, socat,
+  iperf3, ethtool, wget, net-tools (ifconfig/netstat/arp/route), inetutils
+  (telnet/ftp/hostname) - beside iputils (ping, tracepath), bind (dig) and
+  openbsd-netcat already there. 90-apps: wireshark-qt (+ wireshark-cli).
+- **Wireshark capture as a user**: dumpcap is `root:wireshark` 0754 with
+  `cap_dac_override,cap_net_admin,cap_net_raw=eip` - the caps survive into
+  the image; the group is **static** (`g wireshark 150` in its sysusers.d),
+  so no check-owners warning and the gid matches at boot. The first user
+  is created `--member-of=wheel,wireshark` (homed-firstboot drop-in);
+  existing users need `homectl update USER --member-of=...` (the list is
+  replaced, so include wheel).
+- Bluetooth debugging (10-hardware): bluez-utils (bluetoothctl, btmon,
+  btmgmt), bluez-deprecated-tools (hciconfig, hcitool - Arch dropped
+  hcidump), usbutils (lsusb); 00-base: strace, lsof; pciutils, rfkill, and
+  the whole linux-firmware (rtl_bt/ included) were already in.
 
 ## Hard-won facts — do not relearn these
 

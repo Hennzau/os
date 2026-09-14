@@ -56,7 +56,9 @@ def profiles []: nothing -> list<record> {
     [
         {
             id: installer
-            title: Installer
+            # As long as the main profile's title (see main): systemd-boot
+            # centres every title in one column, so equal lengths line up.
+            title: Install
             root: tmpfs
             cmdline: [
                 "rd.systemd.mask=systemd-repart.service"
@@ -108,8 +110,11 @@ export def main [] {
         ...$microcode
         --stub ($efi | path join linuxx64.efi.stub)
         # The first .profile section starts profile 0, the default entry;
-        # everything before it is shared by all profiles.
-        --profile "ID=main"
+        # everything before it is shared by all profiles. systemd-boot shows
+        # a profile as "<PRETTY_NAME> (<TITLE>)", or the bare name without a
+        # TITLE: so this one gets a title as long as the installer's, and the
+        # menu reads "Arch Linux (Desktop)" / "Arch Linux (Install)".
+        --profile "ID=main\nTITLE=Desktop"
         ...$joined
         --signtool sbsign
         --secureboot-private-key (keys-dir | path join db.key)

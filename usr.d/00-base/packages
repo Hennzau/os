@@ -38,6 +38,8 @@ tree
 htop
 jq
 diffutils
+strace
+lsof
 # dig, host, nslookup
 bind
 # make, gcc and the rest of what builds a package

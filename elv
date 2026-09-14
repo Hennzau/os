@@ -20,8 +20,12 @@ def main [] {
 }
 
 # Generate the signing key, certificate and Secure Boot enrollment files.
-def "main keys" [--force] {
-    keys --force=$force
+def "main keys" [
+    --force         # replace existing keys (moved aside, not deleted)
+    --key: path     # import this private key instead of generating one...
+    --cert: path    # ...with its certificate (e.g. elvOS's mkosi.key/.crt)
+] {
+    keys --force=$force --key=$key --cert=$cert
 }
 
 # Build everything: tree, initrd, UKI, disk image. pacman only runs when the
