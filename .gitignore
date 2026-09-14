@@ -1,3 +1,5 @@
 /keys/
 /out/
 __pycache__/
+# Realtek's, not ours to redistribute: usr.d/10-hardware/modules/btrtl/make-firmware
+/usr.d/10-hardware/usr/lib/firmware/rtl_bt/rtl8852bd_eco4.bin

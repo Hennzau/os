@@ -1,0 +1,20 @@
+# btrtl, the Realtek part of btusb, made to start this laptop's Bluetooth:
+# its RTL8852BD (USB 0bda:b853, rom_version 3) needs an "eco 4" patch that
+# linux-firmware's rtl8852bu_fw.bin lacks (eco 1 and 2 only). Without it hci0
+# stays down, address 00:00:00:00:00:00.
+#
+# btrtl.c and btrtl.h are Linux 6.18.51's drivers/bluetooth/btrtl.{c,h} plus
+# rtl_download_eco4(), which loads rtl_bt/rtl8852bd_eco4.bin - made from
+# Realtek's Windows driver by ./make-firmware (Realtek's firmware may not be
+# redistributed, so it is not in git). Verified on the IdeaPad Pro 5 14AGP11:
+# HCI 5.4, firmware 0x3C91950E, AirPods paired and playing.
+#
+# Nothing checks at load time that btusb and this btrtl agree on the
+# functions between them (Arch has no CONFIG_MODVERSIONS), so it builds for
+# the kernel series its source is from, and no other: a new linux-lts means
+# taking that kernel's btrtl.c and adding the eco4 part again.
+ifneq ($(VERSION).$(PATCHLEVEL),6.18)
+$(error btrtl.c is from Linux 6.18, the kernel is $(VERSION).$(PATCHLEVEL): port rtl_download_eco4() to its btrtl.c)
+endif
+
+obj-m += btrtl.o

@@ -46,7 +46,7 @@ SplitName=usr
 
 # Staged in the workspace, then moved into the tree from inside the namespace:
 # the tree's root directory is mode 0555, as the filesystem package ships it.
-def stage-esp [tree: path] {
+def stage-esp [tree: path, installer: bool] {
     let esp = (workspace | path join esp)
     if ($esp | path exists) { rm -r $esp }
     let efi = ($tree | path join usr lib systemd boot efi systemd-bootx64.efi.signed)
@@ -65,30 +65,58 @@ def stage-esp [tree: path] {
     # elvOS and on a system bootctl installs - a visible countdown costs every
     # boot three seconds, test VMs included.
     # console-mode keep: the firmware's own text mode, as elvOS had it.
-    "editor no\nconsole-mode keep\nsecure-boot-enroll manual\n" | save --force ($esp | path join loader loader.conf)
+    let loader = "editor no\nconsole-mode keep\nsecure-boot-enroll manual\n"
     cp ...(glob (keys-dir | path join auto *.auth)) ($esp | path join loader keys auto)
+
+    # The same loader.conf and enrollment keys have to reach a disk the
+    # installer lays out: its ESP is new, and bootctl install fills it with a
+    # loader.conf of its own and no keys at all - so systemd-boot offered no
+    # "Enroll Secure Boot keys" entry there, unlike on an image burned whole
+    # to a disk (elvOS's way, and `elv burn`). installer-finish copies this,
+    # so what goes to /usr is the plain one: an installed disk boots its
+    # desktop, whatever the medium it was installed from did.
+    $loader | save --force ($esp | path join loader loader.conf)
+    let skeleton = ($tree | path join usr lib elv esp)
+    ns-run - sh -c $"rm -rf '($skeleton)' && mkdir -p '($skeleton)' && cp -a '($esp)/loader' '($skeleton)/'"
+
+    # An installer medium boots the Installer profile and nothing else: the
+    # UKI keeps both profiles - systemd-sysinstall installs the UKI it booted
+    # from, and the installed machine needs the main one - but the menu is
+    # skipped and this entry chosen. Holding a key at boot still shows both.
+    if $installer {
+        $"($loader)default *@installer\n" | save --force ($esp | path join loader loader.conf)
+    }
 
     let target = ($tree | path join .elv-esp)
     ns-run - sh -c $"rm -rf '($target)' && cp -a '($esp)' '($target)'"
 }
 
-export def main [] {
+# The disk image: <id>_<version>_x86-64.raw, or <id>_<version>_installer_
+# x86-64.raw for a medium that boots straight into the installer (`elv burn`
+# takes it with --installer). Same partitions either way - the installer
+# copies this /usr onto the target - only the ESP's loader.conf differs.
+export def image-file [installer: bool]: nothing -> path {
+    let name = if $installer { $"(image-name)_installer" } else { (image-name) }
+    out-dir | path join $"($name)_x86-64.raw"
+}
+
+export def main [--installer] {
     if not (uki-path | path exists) {
         error make { msg: "no UKI - run `elv uki` first" }
     }
     let tree = (tree-dir)
     let defs = (workspace | path join repart.d)
-    let out = (out-dir | path join $"(image-name)_x86-64.raw")
+    let out = (image-file $installer)
 
     step "staging the ESP"
-    stage-esp $tree
+    stage-esp $tree $installer
 
     rm -rf $defs
     mkdir $defs
     $REPART | transpose name body | each { |d| $d.body | save ($defs | path join $d.name) } | ignore
 
     # Old split files would otherwise be mistaken for this build's.
-    glob (out-dir | path join $"(image-name)_x86-64*.raw") | each { rm $in } | ignore
+    glob ($out | str replace ".raw" "*.raw") | each { rm $in } | ignore
 
     # erofs is built here rather than by repart (Format=erofs, CopyFiles=):
     # repart first copies the whole tree into a scratch directory and formats
@@ -104,7 +132,9 @@ export def main [] {
         --root $tree --definitions $defs
         --private-key (keys-dir | path join db.key)
         --certificate (keys-dir | path join db.crt)
-        --split=yes --json=short $out) | save --force (workspace | path join repart.json)
+        # Split files are sysupdate's sources, and only the real image's are:
+        # an installer medium would just write another 3 GB of them.
+        --split=(if $installer { "no" } else { "yes" }) --json=short $out) | save --force (workspace | path join repart.json)
 
     open (workspace | path join repart.json) | each { |p|
         let hash = if ($p.roothash? | default "" | is-empty) { "" } else { $"  roothash ($p.roothash | str substring 0..15)…" }
@@ -113,7 +143,8 @@ export def main [] {
 
     ns-run - rm -rf ($tree | path join .elv-esp) ($tree | path join .elv-usr.erofs)
     print ""
-    ls (out-dir) | where name =~ (image-name) | each { |f| print $"  ($f.name | path basename)  ($f.size)" } | ignore
+    let prefix = ($out | path basename | str replace ".raw" "")
+    ls (out-dir) | where { ($in.name | path basename) starts-with $prefix } | each { |f| print $"  ($f.name | path basename)  ($f.size)" } | ignore
 }
 
 def built-image []: nothing -> path {

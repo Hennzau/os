@@ -4,10 +4,14 @@
 # space is there for first-boot repart to use.
 
 use common.nu *
+use image.nu [image-file]
 
-export def main [target: path, --yes] {
-    let img = (out-dir | path join $"(image-name)_x86-64.raw")
-    if not ($img | path exists) { error make { msg: "no image - run `elv build` first" } }
+export def main [target: path, --yes, --installer] {
+    let img = (image-file $installer)
+    if not ($img | path exists) {
+        let how = if $installer { "elv build --installer" } else { "elv build" }
+        error make { msg: $"no ($img | path basename) - run `($how)` first" }
+    }
     let target = ($target | path expand)
     let need = (ls $img | get size | first)
 
@@ -48,9 +52,14 @@ export def main [target: path, --yes] {
     let defs = (workspace | path join burn.d)
     mkdir $defs
 
-    step $"writing (image-name) to ($target)"
+    step $"writing ($img | path basename) to ($target)"
     let cmd = [systemd-repart --offline=yes --empty=force --dry-run=no --no-pager
         --definitions $defs --copy-from $img $target]
     if $device { ^run0 ...$cmd } else { run-external ...$cmd }
-    print $"  done - ($target) boots (image-name); its menu has the Installer entry"
+    let menu = if $installer {
+        "boots straight into the installer (hold a key at boot for the menu)"
+    } else {
+        "boots (image-name), and its menu has the Installer entry"
+    }
+    print $"  done - ($target) ($menu)"
 }

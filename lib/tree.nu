@@ -152,15 +152,25 @@ export def template-vars []: nothing -> record {
 }
 
 # One template's text, rendered: every {{ a.b.c }} - or {{ .a.b.c }}, the Go
-# spelling elvOS's templates use - becomes that value from vars/. Anything
-# else between braces is left as it is. A missing value, or one that is a
-# list or a map rather than a scalar, stops the build and names the file.
+# spelling elvOS's templates use - becomes that value from vars/, passed
+# through the pipeline after it if there is one: `| trimPrefix "#"` and
+# `| trimSuffix "x"`, the two Go/sprig functions elvOS's templates use (its
+# fuzzel.ini takes the # off palette colours). Anything else between braces
+# is left as it is. A missing value, one that is a list or a map rather than
+# a scalar, or a pipeline this does not know stops the build and names the
+# file - left alone, `{{ .x | f }}` would ship as it is, unnoticed.
 def render [file: path, vars: record]: nothing -> string {
     let text = (open --raw $file)
     let name = ($file | path relative-to (project))
+    let key = '\{\{\s*\.?(?<key>[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)'
+    # Joined with +: in $'...' every parenthesis of the regex would be code.
     let refs = ($text
-        | parse --regex '(?<whole>\{\{\s*\.?(?<key>[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\s*\}\})'
+        | parse --regex ('(?<whole>' + $key + '(?<pipes>(?:\s*\|\s*[A-Za-z]+\s+"[^"]*")*)\s*\}\})')
         | uniq-by whole)
+    let unknown = ($text | parse --regex ('(?<whole>' + $key + '\s*\|[^}]*\}\})') | where whole not-in $refs.whole)
+    if ($unknown | is-not-empty) {
+        error make { msg: $"($name): cannot render ($unknown.whole.0) - only trimPrefix \"...\" and trimSuffix \"...\" are known" }
+    }
     $refs | reduce --fold $text { |r, acc|
         let value = ($vars | get -o ($r.key | split row "." | into cell-path))
         if $value == null {
@@ -169,8 +179,16 @@ def render [file: path, vars: record]: nothing -> string {
         if ($value | describe) not-in [string int float bool] {
             error make { msg: $"($name): ($r.key) is a ($value | describe), not a single value" }
         }
+        let piped = ($r.pipes | parse --regex '\|\s*(?<fn>[A-Za-z]+)\s+"(?<arg>[^"]*)"'
+            | reduce --fold ($value | into string) { |p, v|
+                match $p.fn {
+                    "trimPrefix" => (if ($v | str starts-with $p.arg) { $v | str substring ($p.arg | str length).. } else { $v })
+                    "trimSuffix" => (if ($v | str ends-with $p.arg) { $v | str substring ..<(($v | str length) - ($p.arg | str length)) } else { $v })
+                    _ => (error make { msg: $"($name): unknown template function ($p.fn) in ($r.whole)" })
+                }
+            })
         # Literal, not regex, replacement: a $ or \ in a value stays as it is.
-        $acc | str replace --all $r.whole ($value | into string)
+        $acc | str replace --all $r.whole $piped
     }
 }
 

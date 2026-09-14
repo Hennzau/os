@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""Make rtl8852bd_eco4.bin, the firmware this directory's btrtl loads, from
+Realtek's Windows Bluetooth driver.
+
+    ./make-firmware DRIVER.exe            # or the rtl8852bd_mp_chip_new.dat in it
+    ./make-firmware DRIVER.exe -o FILE    # somewhere else
+
+Realtek's firmware may not be redistributed, so it is not in git: a checkout
+makes its own, from the Bluetooth driver on the laptop vendor's site (Lenovo:
+Support > the model > Drivers & Software > Bluetooth). Any vendor's Realtek
+driver for a 0bda:b853 adapter has the file. By default it goes where the
+layer ships it, usr/lib/firmware/rtl_bt/ (gitignored), for the next build.
+
+The .exe is an Inno Setup installer. innoextract unpacks it: from PATH, or
+else in a throwaway Arch container (podman), which installs it first.
+
+The .dat is Realtek's BTNIC003 container: records from 0x200 on, each a 0x29
+byte header - load address at +0x08, (length << 8 | index) at +0x20 - then
+its bytes, and some padding before the next header. Rewritten as "E4RD",
+count, then per record load address, length and bytes (little endian), which
+rtl_download_eco4() in btrtl.c reads. The layout was worked out by
+github.com/mihaits/rtl8852bd-bt-linux.
+"""
+import argparse
+import shutil
+import struct
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+DAT = "rtl8852bd_mp_chip_new.dat"
+HEADER = 0x29
+LOADS = range(0x80100000, 0x81000000)
+DEFAULT = Path(__file__).resolve().parents[2] / "usr/lib/firmware/rtl_bt/rtl8852bd_eco4.bin"
+
+
+def unpack(exe: Path, into: Path) -> Path:
+    if shutil.which("innoextract"):
+        subprocess.run(["innoextract", "-s", "-d", str(into), str(exe)], check=True)
+    else:
+        print("innoextract is not installed: unpacking in an Arch container")
+        shutil.copy(exe, into / "driver.exe")
+        subprocess.run(["podman", "run", "--rm", "-v", f"{into}:/w:Z",
+                        "docker.io/library/archlinux:latest", "sh", "-c",
+                        "pacman -Sy --noconfirm innoextract > /dev/null"
+                        " && innoextract -s -d /w /w/driver.exe"], check=True)
+    found = sorted(into.rglob(DAT))
+    if not found:
+        sys.exit(f"no {DAT} in {exe} - not a Realtek Bluetooth driver for this chip?")
+    return found[0]
+
+
+def records(data: bytes):
+    if not data.startswith(b"BTNIC003"):
+        sys.exit(f"{DAT} does not start with BTNIC003")
+    p = 0x200
+    while p + HEADER <= len(data):
+        load, = struct.unpack_from("<I", data, p + 0x08)
+        field, = struct.unpack_from("<I", data, p + 0x20)
+        length, index = field >> 8, field & 0xFF
+        start = p + HEADER
+        if load in LOADS and 0 < length <= len(data) - start:
+            yield index, load, data[start:start + length]
+            p = start + length
+        else:
+            p += 1
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("source", type=Path, help="the driver .exe, or its rtl8852bd_mp_chip_new.dat")
+    ap.add_argument("-o", "--output", type=Path, default=DEFAULT)
+    args = ap.parse_args()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        dat = args.source
+        if dat.suffix.lower() == ".exe":
+            dat = unpack(dat.resolve(), Path(tmp))
+        found = list(records(dat.read_bytes()))
+
+    if not found:
+        sys.exit(f"no firmware records in {dat.name}")
+    out = bytearray(b"E4RD" + struct.pack("<I", len(found)))
+    for index, load, blob in found:
+        print(f"  record {index}: {len(blob)} bytes at {load:#010x}")
+        out += struct.pack("<II", load, len(blob)) + blob
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_bytes(out)
+    print(f"{args.output}: {len(found)} records, {len(out)} bytes")
+
+
+if __name__ == "__main__":
+    main()

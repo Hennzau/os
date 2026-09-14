@@ -36,3 +36,7 @@ application/x-7z-compressed=org.gnome.Nautilus.desktop
 
 x-scheme-handler/element=io.element.Element.desktop
 x-scheme-handler/io.element.desktop=io.element.Element.desktop
+
+# Claude Code (installed in the home) registers this for its sign-in links;
+# here, so it need not write the file over the link.
+x-scheme-handler/claude-cli=claude-code-url-handler.desktop

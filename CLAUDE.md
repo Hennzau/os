@@ -20,7 +20,9 @@ and prefer lean code whose comments explain reasons rather than restate code.
 - **The only customisation is `usr.d/` layers**, applied in name order. A
   layer is a directory with an optional `packages` file (one pacman package
   per line) and an optional `usr/` tree copied over the image's `/usr`. All
-  layers' packages install together, before any files are copied. A file a
+  layers' packages install together, before any files are copied. Optional
+  `modules/NAME/` directories hold kernel modules built from source (see
+  "Kernel modules from source"). A file a
   layer ships under `usr/share/factory/etc/` is an /etc default and wins over
   the package's version (it reaches /etc if a tmpfiles line names it).
 - `image.nuon` holds identity only: `id`, `version`, `mirror`.
@@ -30,7 +32,12 @@ and prefer lean code whose comments explain reasons rather than restate code.
   `vars/*.yaml|yml`, merged, each file bringing its own top-level keys
   (`palette:`, `font:` - elvOS's `theme/*.yml` drop in as they are); a key
   in two files is an error. Placeholders `{{ a.b.c }}` or `{{ .a.b.c }}`
-  (elvOS's Go spelling); other `{{ ... }}` is left alone; a missing or
+  (elvOS's Go spelling), optionally piped through `| trimPrefix "s"` /
+  `| trimSuffix "s"` (2026-09-15: elvOS's fuzzel.ini uses trimPrefix "#";
+  before that the renderer knew no pipes and left those ten colour lines
+  unrendered in the image - the user found a broken fuzzel.ini); a
+  key-shaped placeholder with any other pipe is an error, other `{{ ... }}`
+  is left alone; a missing or
   non-scalar value stops the build naming the file; substitution is literal
   (`$`, `\` safe). Done where layer files enter the tree: `apply-usr` and
   the factory `/etc` overlay in `hermetic` (both tar with `--exclude='*.tmpl'`,
@@ -50,10 +57,14 @@ and prefer lean code whose comments explain reasons rather than restate code.
   templated file is rendered into /usr and put in homes by **user-tmpfiles**
   (**`/usr/share/user-tmpfiles.d/`** - not /usr/lib, which user-tmpfiles never reads: `systemd-tmpfiles --user --cat-config` lists only /usr/share; `%h/...`), run by the user manager's
   systemd-tmpfiles-setup.service at login (enabled from /usr: the user-preset
-  `disable *` does not touch it). `L` (not `L+`, which would replace a file
-  the user made) for files the app only reads, so updates arrive; `C` for
-  files the app or the user edits (a later default arrives only if the
-  file is deleted). **Everything goes to ~/.config** (user, 2026-09-15):
+  `disable *` does not touch it). **Only `L`, no `C`** (user, 2026-09-15:
+  "no copy for all of them, only links" - niri's config/monitors, fuzzel,
+  GTK settings.ini and mimeapps.list had been `C`): every image's version
+  reaches the home and changes are made in the repo; a tool saving settings
+  replaces the link with a file, which then stays the user's. `L`, not
+  `L+`, which would replace a file the user made. Homes that got `C`
+  copies keep them until deleted (L never replaces a file).
+  **Everything goes to ~/.config** (user, 2026-09-15):
   nothing of ours in /etc/xdg, even where an app reads it natively - tools
   read and edit the files in the home. They also chose `/usr/lib/…`
   for vendor config with an `/etc` override layer, per systemd's convention.
@@ -65,11 +76,12 @@ elv                 entry point (nushell script, subcommands)
 image.nuon          id / version / mirror
 vars/               YAML values for layer *.tmpl files: palette.yml (elvOS's,
                     verbatim), fonts.yml (elvOS's, mono -> IBM Plex Mono)
-usr.d/NN-name/      layers: packages + usr/
+usr.d/NN-name/      layers: packages + usr/ (+ modules/NAME/, kbuild sources)
 lib/common.nu       paths, config, ns-run (the user-namespace runner)
 lib/ns.nu           runs *inside* the namespace; mounts API fs into a tree
 lib/keys.nu         elv keys
 lib/tree.nu         bootstrap (pacman), layers, hermetic finalisation
+lib/modules.nu      the layers' kernel modules, built in their own tree
 lib/initrd.nu       initrd as a second small Arch tree + cpio
 lib/uki.nu          ukify build + sbsign; kernel cmdline lives here
 lib/image.nu        ESP staging, build-time repart defs, repart, `vm`
@@ -91,8 +103,11 @@ CacheDir so builds rarely download.
 
 ```
 ./elv keys [--force]     key, cert, loader/keys/auto/{PK,KEK,db}.auth
-./elv build [--update]   tree → initrd → uki → image   (~8 s warm, ~60 s cold)
-./elv tree [--update] | initrd | uki | image    one stage
+./elv build [--update] [--installer]   tree → modules → initrd → uki → image
+                         (~8 s warm, ~60 s cold); --installer writes the
+                         installer medium instead (see below)
+./elv tree [--update] | modules | initrd | uki | image [--installer]   one stage
+                         (tree runs modules too)
 ./elv vm [--serial|--headless] [--install] [--pristine] [--setup-mode]   QEMU window,
                          always Secure Boot; the window is a pristine machine
                          (every first-boot question), --serial/--headless are
@@ -107,8 +122,8 @@ CacheDir so builds rarely download.
                          log, quit (see "Testing in the VM")
 ./elv boot               run0 systemd-nspawn --volatile=yes of the image, in
                          the terminal
-./elv burn TARGET [--yes]   the image onto a whole disk (via run0) or an
-                         existing file; asks first unless --yes
+./elv burn TARGET [--yes] [--installer]   the image onto a whole disk (via
+                         run0) or an existing file; asks first unless --yes
 ./elv sysupdate [--reboot]  inside an elv system: run0 systemd-sysupdate
                          --transfer-source=out update (needs a newer version)
 ./elv clean              remove the workspace
@@ -116,6 +131,7 @@ CacheDir so builds rarely download.
 
 Outputs in `out/`: `<id>_<ver>_x86-64.raw` (disk), `.efi` (UKI),
 `.usr.raw`, `.usr-verity.raw`, `.usr-verity-sig.raw` (sysupdate sources).
+With `--installer`, `<id>_<ver>_installer_x86-64.raw` and no split files.
 
 ## Incremental builds (2026-09-11)
 
@@ -209,6 +225,41 @@ entries and `/elvos/`, and drops the `default` line. Then it asks for a key;
   ("Unknown key", visible with `systemd-analyze verify`).
 - "Exiting first boot settings tool." after "Installation succeeded" is
   sysinstall's own exit text.
+- **The installed ESP needs our loader.conf and enrollment keys copied onto
+  it** (2026-09-15, the user missed elvOS's "Enroll key" entry): elvOS was
+  burned whole to the disk, so its ESP *was* the image's, with mkosi's
+  /loader/keys/auto and its loader.conf. Here repart makes an empty ESP and
+  `bootctl install` writes only `#timeout 3 / #console-mode keep` plus
+  `default <token>-*` (bootctl-install.c install_loader_config, and it skips
+  the file if one exists) - no keys, so systemd-boot showed no enroll entry
+  (boot.c secure_boot_discover_keys: it needs `\loader\keys\<dir>` *and*
+  setup or audit mode), and none of `editor no`, `console-mode keep`,
+  `secure-boot-enroll manual`. So stage-esp now also puts the ESP's
+  `loader/` (loader.conf + keys/auto/*.auth) into the image at
+  **`/usr/lib/elv/esp/`**, and installer-finish copies it over the new ESP's
+  (which drops bootctl's `default` line with it). An already-installed
+  machine needs it once by hand: `run0 cp -a /usr/lib/elv/esp/loader/.
+  /boot/loader/`. Not yet tested in a VM install.
+
+**An installer medium boots the Installer and nothing else** (2026-09-15,
+the user: on a USB the main entry "doesn't make much sense, and it doesn't
+even work" - it is a live system whose first boot wants to grow /usr to 8 G
+and add a B slot on the stick). `elv build --installer` / `elv image
+--installer` writes `<id>_<ver>_installer_x86-64.raw`, `elv burn --installer
+TARGET` writes that one. It differs from the normal image in its ESP's
+loader.conf alone: one more line, `default *@installer` (systemd-boot
+matches the default with a glob - boot.c efi_fnmatch - against entry ids
+`<file>@<profile-id>`), so the menu is skipped and the installer boots;
+holding a key still shows both entries. Split files are skipped for it.
+- **The UKI keeps both profiles there**: systemd-sysinstall installs the UKI
+  it booted from, so an installer-only UKI would leave the installed machine
+  booting the installer for ever.
+- The copy of loader.conf that goes to `/usr/lib/elv/esp` (for
+  installer-finish) is always the plain one, so an installed disk boots its
+  desktop whatever medium it came from.
+- **The enroll entry is absent in `elv vm` by design**: the VM's firmware
+  has our keys enrolled, and systemd-boot only offers enrollment in setup or
+  audit mode. `elv vm --setup-mode` gives blank variables and shows it.
 
 **Menu titles of equal length** (2026-09-14, the user's wish): systemd-boot
 (boot.c) titles a UKI profile "<PRETTY_NAME> (<TITLE>)" - PRETTY_NAME first,
@@ -485,6 +536,17 @@ The user wants /etc really minimal; ParticleOS was the reference. The old
   dbus (81), both static. `check-owners` (hermetic) warns at build time if
   that ever changes. Pinning build IDs was rejected: once root persists, a
   later image could pin a number an existing system gave someone else.
+- **A package whose /usr links into /etc needs its own `L` line** (2026-09-15:
+  LibreOffice would not start - "the configuration file
+  /usr/lib/libreoffice/program/sofficerc was not found"). Arch puts its
+  sofficerc, bootstraprc and psprint.conf in /etc/libreoffice and links to
+  them from /usr, and /etc had no such entry, so the links dangled.
+  `usr.d/90-apps/usr/lib/tmpfiles.d/90-elvos-apps.conf`: `L /etc/libreoffice`
+  (factory-paths then copies the package's own files into the factory).
+  **The check, after adding packages**: `find /usr -xtype l -lname '/etc/*'`
+  in a booted image - on this one it also reports element-web's
+  config.json, which no package ships (it is written by whoever serves the
+  app), so that one stays dangling and element-desktop does not care.
 - Verified: TLS (curl https → 200), pacman -Q, password login + run0 on
   tty1, pristine first boot → homed user (nu, wheel) logs in; running.
 - **Kernel: `linux-lts`** (6.18.50-2-lts, the host's too). The initrd rebuilt
@@ -967,6 +1029,98 @@ For a networking course and later Bluetooth debugging on the main laptop.
   btmgmt), bluez-deprecated-tools (hciconfig, hcitool - Arch dropped
   hcidump), usbutils (lsusb); 00-base: strace, lsof; pciutils, rfkill, and
   the whole linux-firmware (rtl_bt/ included) were already in.
+
+## Main laptop's Bluetooth: RTL8852BD eco 4 (2026-09-14)
+
+Bluetooth on the IdeaPad Pro 5 14AGP11 had never worked on Linux. It is the
+USB half of the RTL8852BE card, `0bda:b853`, and reports `rom_version=3`:
+the "8852BD" cut, which needs an **eco 4** patch. linux-firmware's
+`rtl8852bu_fw.bin` (checked: 20260910) has eco 1 and 2 only, so btrtl's v2
+parser finds nothing (-ENODATA, no message), setup fails, and hci0 stays
+DOWN with address 00:00:00:00:00:00 and no mgmt index ("No default
+controller available"). `Opcode 0xfcf0 failed: -16` (the MSFT extension)
+is a side effect, not the cause. Reported upstream several times
+(linux-bluetooth, Fedora, CachyOS); Realtek has not answered.
+- **The fix**: Realtek's Windows driver has the patch
+  (`rtl8852bd_mp_chip_new.dat`, a `BTNIC003` container of 3 records, each
+  with its own load address), and github.com/mihaits/rtl8852bd-bt-linux
+  worked out how to send it: per record, `0xfc62` writes the record's
+  address into the download buffer pointer at `0x801200cc`, then `0xfc20`
+  fragments with plain indices; one lone `0xfc20 [0x80]` commits.
+  `usr.d/10-hardware/modules/btrtl/` is Linux 6.18.51's btrtl.c/btrtl.h
+  plus that download (our port of it, not their 6.8-based module), taken
+  only for 8852B + hci_rev 0xb + USB + rom_version 3 when the parser says
+  -ENODATA. Verified on the laptop: HCI 5.4, firmware 0x3C91950E, AirPods
+  paired and playing. The chip's firmware lives in RAM: a reboot undoes a
+  test.
+- **Firmware**: `./make-firmware DRIVER.exe` (in that directory) writes
+  `usr.d/10-hardware/usr/lib/firmware/rtl_bt/rtl8852bd_eco4.bin`,
+  **gitignored** - Realtek's, not redistributable. It unpacks the Inno Setup
+  .exe with innoextract, or, not installed, in a throwaway
+  `docker.io/library/archlinux` podman container (both paths verified: same
+  bytes). Lenovo's driver used: `4zsd020fqtusgcj0.exe`, Realtek 8852BE
+  18.4032.0.3008. A build without the file warns (below).
+- Lenovo's site answers 403 to our fetches: the user downloads the .exe.
+- **bluetoothd kept stale state** once: started while the patched btrtl was
+  still bringing the chip up, it received every found device from the
+  kernel (btmon showed MGMT Device Found, even for the AirPods) and created
+  none - no `[NEW]`, `pair` gave "Device not available". `systemctl restart
+  bluetooth` with the chip up fixed it; the exact check was not found. At
+  boot the module sets the chip up before bluetoothd sees it, so it should
+  not recur.
+- **Wi-Fi/Bluetooth coexistence is not negotiated**: rtw89's
+  `/sys/kernel/debug/ieee80211/phy0/rtw89/btc_info` says `BT_FW_coex:0
+  (Mismatch, desired:7)` and `igno_bt:1` with this firmware. Audio was fine
+  (Wi-Fi on 5 GHz); a scan with Wi-Fi off found 14 devices against 9 with
+  it on. Look there first if audio stutters.
+- Tests that need root were scripts in `~/bt-eco4/` run by the user with
+  run0 (the scratchpad under /tmp/claude-* is not visible to their shell).
+  btmon under root plus bluetoothd's debug log (`pkill -USR2 -x
+  bluetoothd` toggles it) is what separated "radio hears nothing" from
+  "bluetoothd drops what it hears".
+
+## Kernel modules from source (2026-09-14)
+
+`lib/modules.nu`, the `modules` stage, run by `elv tree` and `elv build`
+after the tree (`elv modules` alone). Each `usr.d/*/modules/NAME/` (a
+`Kbuild` and its sources) is built as an external module:
+- in its own tree, `workspace/modules-build`: bash, coreutils, findutils,
+  gawk, grep, sed, diffutils, gcc, make and `<pkgbase>-headers` (the
+  kernel's `usr/lib/modules/KVER/pkgbase` names the package: linux-lts),
+  installed from base's sync databases - headers and kernel are the same
+  build, and neither lands in /usr (the headers are 270 MB). Remade when
+  the kernel, the databases or modules.nu change (`modules-build.key`).
+- `make -C /usr/lib/modules/KVER/build M=/src modules` chrooted there,
+  then `strip --strip-debug` and `zstd -19`, as Arch ships its own (the
+  stock btrtl.ko.zst is 18 KB; unstripped ours was 900 KB). Each module is
+  cached in `workspace/modules/<layer>-<name>` keyed on its files' hashes
+  and the toolchain key: a warm build only copies it.
+- Installed to `/usr/lib/modules/KVER/updates/`, then `depmod -b`. Arch's
+  `/usr/lib/depmod.d/search.conf` is `search updates extramodules
+  built-in`, so a module named like an in-tree one replaces it; the stage
+  checks with `modinfo -b` that the kernel would load ours, and errors
+  otherwise.
+- It warns about firmware a module asks for (`MODULE_FIRMWARE`) that the
+  image lacks - only what the kernel's own module of the same name does not
+  ask for, since that list is linux-firmware's business.
+- **Arch's kernel has no CONFIG_MODVERSIONS**: nothing checks at load that a
+  replaced module and its callers (btusb → btrtl) agree, and Module.symvers
+  CRCs are all zero - an export check there proves nothing. So a module's
+  Kbuild guards itself with `$(VERSION).$(PATCHLEVEL)`: btrtl's refuses to
+  build for anything but 6.18, and a new linux-lts series means porting
+  rtl_download_eco4() onto that kernel's btrtl.c. Module signatures are not
+  enforced either (lockdown none), so the unsigned module loads and taints
+  the kernel; /usr's verity is what vouches for it.
+- Verified on a stand-in workspace (this laptop had no keys/, so no real
+  `elv tree`): a package tree of linux-lts alone, then the stage - built
+  btrtl (19 KB), warned about the missing eco4 firmware, went quiet once the
+  file was in the tree, "unchanged" on the second run, and `modinfo -b`
+  resolved btrtl to `updates/btrtl.ko.zst`. The Kbuild guard stops a
+  mismatched series ("Kbuild:17: *** btrtl.c is from Linux 6.18 ...").
+  Not yet in a booted image.
+- The build needs `CONFIG_DEBUG_INFO_BTF_MODULES`' pahole: in the toolchain
+  tree it comes with the headers package; a host build without pahole fails
+  at "BTF [M]" unless given `CONFIG_DEBUG_INFO_BTF_MODULES=`.
 
 ## Hard-won facts — do not relearn these
 

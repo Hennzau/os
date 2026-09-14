@@ -8,6 +8,7 @@
 use lib/common.nu *
 use lib/keys.nu
 use lib/tree.nu
+use lib/modules.nu
 use lib/initrd.nu
 use lib/uki.nu
 use lib/image.nu
@@ -30,15 +31,23 @@ def "main keys" [
 
 # Build everything: tree, initrd, UKI, disk image. pacman only runs when the
 # layers' package lists change; --update syncs and upgrades every package.
-def "main build" [--update] {
+def "main build" [--update, --installer] {
     tree --update=$update
+    modules
     initrd
     uki
-    image
+    image --installer=$installer
 }
 
-# Copy the package tree and apply the usr.d layers; --update upgrades packages.
-def "main tree" [--update] { tree --update=$update }
+# Copy the package tree and apply the usr.d layers, kernel modules built from
+# source included; --update upgrades packages.
+def "main tree" [--update] {
+    tree --update=$update
+    modules
+}
+
+# Build the layers' kernel modules (usr.d/*/modules/NAME) into the tree.
+def "main modules" [] { modules }
 
 # Build the initrd from its own small tree.
 def "main initrd" [] { initrd }
@@ -46,8 +55,11 @@ def "main initrd" [] { initrd }
 # Build and sign the UKI.
 def "main uki" [] { uki }
 
-# Assemble the ESP and /usr partitions into a disk image.
-def "main image" [] { image }
+# Assemble the ESP and /usr partitions into a disk image. --installer makes
+# a second image, <id>_<version>_installer_x86-64.raw, whose only difference
+# is that it boots the Installer entry rather than showing a menu - what a
+# USB stick to install from wants (`elv burn --installer`).
+def "main image" [--installer] { image --installer=$installer }
 
 # Boot the last built image in a QEMU window, as a fresh machine would: every
 # first-boot question. --serial for a terminal, --headless for no window
@@ -61,8 +73,11 @@ def "main vm" [--serial, --headless, --install, --pristine, --setup-mode, --gpu,
     image vm --serial=$serial --headless=$headless --install=$install --pristine=$pristine --setup-mode=$setup_mode --gpu=$gpu --share=$share
 }
 
-# Write the last built image to a disk, e.g. a USB stick (via run0), or to a file.
-def "main burn" [target: path, --yes] { burn $target --yes=$yes }
+# Write the last built image to a disk, e.g. a USB stick (via run0), or to a
+# file. --installer writes the installer medium instead (see `elv image`).
+def "main burn" [target: path, --yes, --installer] {
+    burn $target --yes=$yes --installer=$installer
+}
 
 # Update the running system to the last built image, as systemd-sysupdate
 # would from a server: /usr into the other slot, the UKI beside the current

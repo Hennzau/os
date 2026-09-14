@@ -48,9 +48,12 @@ for esp in $(lsblk -nrpo PATH,PARTTYPE | awk '$2 == "c12a7328-f81f-11d2-ba4b-00a
     done
     rmdir "$mnt/$IMAGE_ID" 2>/dev/null || true
 
-    # With no default, systemd-boot starts the newest UKI's first profile,
-    # as on the image's own ESP.
-    sed -i '/^default /d' "$mnt/loader/loader.conf"
+    # bootctl install wrote its own loader.conf (with a `default` line that
+    # would pin the installed UKI) and no enrollment keys. Ours replaces it -
+    # no default, so systemd-boot starts the newest UKI's first profile - and
+    # brings /loader/keys/auto, so a machine in setup mode is offered the
+    # "Enroll Secure Boot keys: auto" entry, as on the image's own ESP.
+    cp -a /usr/lib/elv/esp/loader/. "$mnt/loader/"
 
     umount "$mnt"
     echo "Moved the boot entry on $esp to /EFI/Linux, where updates will manage it."

@@ -1,16 +1,19 @@
-// Monitor layout for this machine.
-//
-// output "eDP-1" {
-//     mode "2880x1800@120.000"
-//     scale 1.75
-//     position x=0 y=0
-// }
-//
-// output "HDMI-A-1" {
-//     mode "2560x1440@144.000"
-//     position x=-2560 y=0
-// }
+// Monitor layout. niri skips an output that is not connected, so each
+// machine picks up its own blocks.
 
+// The laptop panel, and the external screen to its left.
+output "eDP-1" {
+    mode "2880x1800@120.000"
+    scale 1.75
+    position x=0 y=0
+}
+
+output "HDMI-A-1" {
+    mode "2560x1440@144.000"
+    position x=-2560 y=0
+}
+
+// `elv vm`'s display.
 output "Virtual-1" {
     scale 1.75
 }
