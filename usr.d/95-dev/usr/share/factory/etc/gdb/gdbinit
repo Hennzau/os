@@ -1,0 +1,6 @@
+# Arch's own /etc/gdb/gdbinit is empty, and its gdb reads only this one
+# system file (--with-system-gdbinit, no gdbinit.d).
+#
+# DEBUGINFOD_URLS is set for every login (00-base); this answers gdb's
+# "Enable debuginfod for this session?" once for all sessions.
+set debuginfod enabled on

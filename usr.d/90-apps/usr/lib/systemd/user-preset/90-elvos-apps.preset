@@ -1,0 +1,3 @@
+# jolt's daemon records battery and power history in the background, for the
+# jolt TUI to show; per user, started with the user's session.
+enable jolt.service

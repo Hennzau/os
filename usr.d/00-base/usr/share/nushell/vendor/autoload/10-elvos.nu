@@ -18,3 +18,11 @@ if ($env.LANG? | is-empty) {
         | load-env
     }
 }
+
+# Debug symbols on demand - valgrind cannot start without glibc's, and gdb
+# wants them too. /etc/environment sets this through pam_env, but not every
+# way in gets it (a `su -l` from root came up without it), and nushell does
+# not read /etc/profile.d.
+if ($env.DEBUGINFOD_URLS? | is-empty) {
+    $env.DEBUGINFOD_URLS = "https://debuginfod.archlinux.org"
+}

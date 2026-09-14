@@ -745,7 +745,9 @@ elvOS's desktop, ported. **80-desktop**: Mesa + Vulkan (radeon, virtio,
 swrast), niri, xwayland-satellite, Quickshell, greetd, fuzzel, mako,
 wl-mirror, portals (gnome, gtk), xdg-user-dirs-gtk, ibus, gnome-keyring,
 udiskie. **90-apps**: alacritty, firefox, nautilus, gnome-disk-utility,
-gnome-system-monitor, libreoffice-fresh, element-desktop, discord, jolt.
+gnome-system-monitor, libreoffice-fresh, element-desktop, discord, jolt
+(its daemon is a *user* unit, `jolt.service`, enabled by 90-apps' user
+preset - the `disable *` catch-all kept it off before).
 /usr 3.3 GB (erofs). The slots were 4 GB; **grown to 8 GB** (2026-09-13,
 the user's choice) before any install, since a slot's size is fixed once a
 machine is installed. 90-apps is the part to drop if it ever gets tight.
@@ -798,6 +800,54 @@ hash tree for 8G is ~65 MB); `systemd-repart --dry-run=yes --empty=allow
 - **rtkit** (10-hardware, 2026-09-13): pipewire logged "RTKit error:
   ServiceUnknown" without it. D-Bus activated, no preset; verified: active,
   "Successfully made thread ... RT at priority 20" for pipewire, 0 errors.
+
+## usr.d/95-dev (2026-09-14)
+
+elvOS's dev layer, with each language's server, formatter and debugger from
+the system and Zed pointed at them. Packages: rust (+src, analyzer, musl,
+aarch64-gnu/-musl targets, cargo-zigbuild), zig + zls, clang (clangd,
+clang-format) + musl, cmake, meson, ninja, gdb, lldb, valgrind, python + uv
++ ruff + ty, typst + tinymist, just + just-lsp, bash-language-server +
+shellcheck + shfmt, taplo-cli, kdlfmt, yaml-language-server,
+vscode-json-languageserver, marksman, qt6-declarative (qmlls), zed. /usr
+3.3 → 5.0 GB (8 GB slot).
+- Zed: `/usr/share/zed/settings.json.tmpl` (elvOS's settings + `lsp.<id>
+  .binary.path` for every server + `node.path`), elvOS's keymap and palette
+  theme; user-tmpfiles `95-dev.conf`: settings.json and keymap.json `C`
+  (Zed rewrites them from its UI), themes/elvos.json `L`.
+- **Server ids** are the adapters' or extensions' `[language_servers.<id>]`:
+  rust-analyzer, clangd, ty, ruff, bash-language-server (basher ext),
+  yaml-language-server, json-language-server (built in); zls (zig ext),
+  tinymist (typst), nu (nu, `nu --lsp`), just-lsp (just), marksman
+  (marksman). The **qml** extension takes no binary path - it reads only
+  arguments, under the key `qml`, and finds qmlls/qmlls6 on PATH. The
+  **toml** and **kdl** extensions have no server: formatters `taplo fmt -`
+  and `kdlfmt format -` (both read stdin - verified).
+- Python: `language_servers: ["ty", "ruff", "!basedpyright", ...]`, ruff
+  formats. Rust: clippy on check. Typst: typstyle, PDF on save.
+- gdb: Arch's is built with only `--with-system-gdbinit=/etc/gdb/gdbinit`
+  (no gdbinit.d) and ships it empty; the factory `/etc/gdb/gdbinit` holds
+  `set debuginfod enabled on` (`L /etc/gdb`).
+- bash-/yaml-language-server's /usr/bin entries are **absolute symlinks**
+  into /usr/lib/node_modules: checked from the host they look missing;
+  resolve them inside the tree.
+- **Zed's Restricted Mode**: an untrusted project starts no language server
+  ("Waiting for worktree ... to be trusted") until the user trusts it (a
+  dialog; "Trust all projects in <dir>" is offered).
+  `session.trust_all_worktrees` (default false) skips the check - not set
+  in the image; a security choice for the user.
+- In the VM, Zed's extension downloads failed "client error (Connect):
+  operation timed out" while curl reached the same CDN in 3 s - QEMU's
+  user networking, probably IPv6 first; not an image problem. On the next
+  start all 12 installed.
+- **valgrind** (2026-09-14): Arch's needs glibc's debug info to start,
+  fetched through debuginfod - with DEBUGINFOD_URLS set, `debuginfod-find`
+  got ld.so's in 3 s and `valgrind /usr/bin/true` exits 0. A `su -l` from
+  root came up without the variable although /etc/environment has it (the
+  message was valgrind's "a function redirection which is mandatory ...
+  cannot be set up"), so 00-base's nushell autoload sets it when unset.
+- A transient mirror stall ("Operation too slow" on two .sig files) failed
+  two builds in a row; the third went through. No .part files were left.
 
 ## Self-hosting (2026-09-12)
 

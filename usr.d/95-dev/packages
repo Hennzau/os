@@ -1,0 +1,52 @@
+# Development: toolchains, and for each language its language server,
+# formatter and debugger from the system - Zed (usr/share/zed/settings.json)
+# is pointed at these rather than downloading its own.
+
+# Rust, with the musl and aarch64 targets; cargo-zigbuild cross-links with zig.
+rust
+rust-src
+rust-analyzer
+rust-musl
+rust-aarch64-gnu
+rust-aarch64-musl
+cargo-zigbuild
+
+zig
+zls
+
+# C and C++: gcc comes with base-devel; clang for clangd and clang-format.
+clang
+musl
+cmake
+meson
+ninja
+gdb
+lldb
+valgrind
+
+python
+uv
+ruff
+ty
+
+typst
+tinymist
+
+just
+just-lsp
+
+# Shell, and the config formats edited most here (niri's KDL, TOML, YAML,
+# JSON, Markdown). The npm-built servers bring nodejs.
+bash-language-server
+shellcheck
+shfmt
+taplo-cli
+kdlfmt
+yaml-language-server
+vscode-json-languageserver
+marksman
+
+# QML (Quickshell): qmlls ships in qt6-declarative (also 80-desktop's).
+qt6-declarative
+
+zed

@@ -1,0 +1,463 @@
+{
+  "$schema": "https://zed.dev/schema/themes/v0.2.0.json",
+  "name": "elvOS",
+  "author": "Enzo Le Van",
+  "themes": [
+    {
+      "name": "elvOS Light",
+      "appearance": "light",
+      "style": {
+        "border": "{{ .palette.border.default }}",
+        "border.variant": "{{ .palette.border.variant }}",
+        "border.focused": "{{ .palette.border.focused }}",
+        "border.selected": "{{ .palette.border.selected }}",
+        "border.transparent": "{{ .palette.border.transparent.rgba }}",
+        "border.disabled": "{{ .palette.border.disabled }}",
+
+        "elevated_surface.background": "{{ .palette.bg.elevated }}",
+        "surface.background": "{{ .palette.bg.surface }}",
+        "background": "{{ .palette.bg.canvas }}",
+
+        "element.background": "{{ .palette.bg.element }}",
+        "element.hover": "{{ .palette.bg.element_hover }}",
+        "element.active": "{{ .palette.bg.element_active }}",
+        "element.selected": "{{ .palette.bg.element_selected }}",
+        "element.disabled": "{{ .palette.bg.element_disabled }}",
+
+        "drop_target.background": "{{ .palette.editor.drop_target.rgba }}",
+
+        "ghost_element.background": "{{ .palette.bg.ghost.rgba }}",
+        "ghost_element.hover": "{{ .palette.bg.ghost_hover }}",
+        "ghost_element.active": "{{ .palette.bg.ghost_active }}",
+        "ghost_element.selected": "{{ .palette.bg.ghost_selected }}",
+        "ghost_element.disabled": "{{ .palette.bg.ghost_disabled }}",
+
+        "text": "{{ .palette.fg.primary }}",
+        "text.muted": "{{ .palette.fg.muted }}",
+        "text.placeholder": "{{ .palette.fg.placeholder }}",
+        "text.disabled": "{{ .palette.fg.disabled }}",
+        "text.accent": "{{ .palette.fg.accent }}",
+
+        "icon": "{{ .palette.icon.primary }}",
+        "icon.muted": "{{ .palette.icon.muted }}",
+        "icon.disabled": "{{ .palette.icon.disabled }}",
+        "icon.placeholder": "{{ .palette.icon.placeholder }}",
+        "icon.accent": "{{ .palette.icon.accent }}",
+
+        "status_bar.background": "{{ .palette.bg.statusbar }}",
+        "title_bar.background": "{{ .palette.bg.titlebar }}",
+        "title_bar.inactive_background": "{{ .palette.bg.titlebar_inactive }}",
+        "toolbar.background": "{{ .palette.bg.toolbar }}",
+
+        "tab_bar.background": "{{ .palette.bg.tabbar }}",
+        "tab.inactive_background": "{{ .palette.bg.tab_inactive }}",
+        "tab.active_background": "{{ .palette.bg.tab_active }}",
+
+        "search.match_background": "{{ .palette.editor.search_match.rgba }}",
+        "search.active_match_background": "{{ .palette.editor.search_active_match.rgba }}",
+
+        "panel.background": "{{ .palette.bg.panel }}",
+        "panel.focused_border": null,
+        "pane.focused_border": null,
+
+        "scrollbar.thumb.background": "{{ .palette.editor.scrollbar_thumb.rgba }}",
+        "scrollbar.thumb.hover_background": "{{ .palette.editor.scrollbar_thumb_hover }}",
+        "scrollbar.thumb.border": "{{ .palette.editor.scrollbar_thumb_border }}",
+        "scrollbar.track.background": "{{ .palette.editor.scrollbar_track.rgba }}",
+        "scrollbar.track.border": "{{ .palette.editor.scrollbar_track_border }}",
+
+        "editor.foreground": "{{ .palette.fg.editor }}",
+        "editor.background": "{{ .palette.bg.editor }}",
+        "editor.gutter.background": "{{ .palette.bg.gutter }}",
+        "editor.subheader.background": "{{ .palette.bg.editor_subheader }}",
+        "editor.active_line.background": "{{ .palette.bg.editor_active_line.rgba }}",
+        "editor.highlighted_line.background": "{{ .palette.bg.editor_highlighted_line }}",
+        "editor.line_number": "{{ .palette.fg.line_number }}",
+        "editor.active_line_number": "{{ .palette.fg.line_number_active }}",
+        "editor.hover_line_number": "{{ .palette.fg.line_number_hover }}",
+        "editor.invisible": "{{ .palette.fg.invisible }}",
+        "editor.wrap_guide": "{{ .palette.editor.wrap_guide.rgba }}",
+        "editor.active_wrap_guide": "{{ .palette.editor.active_wrap_guide.rgba }}",
+        "editor.document_highlight.read_background": "{{ .palette.editor.document_highlight_read.rgba }}",
+        "editor.document_highlight.write_background": "{{ .palette.editor.document_highlight_write.rgba }}",
+
+        "terminal.background": "{{ .palette.bg.terminal }}",
+        "terminal.foreground": "{{ .palette.fg.terminal }}",
+        "terminal.bright_foreground": "{{ .palette.fg.terminal_bright }}",
+        "terminal.dim_foreground": "{{ .palette.fg.terminal_dim }}",
+
+        "terminal.ansi.black": "{{ .palette.ansi.black }}",
+        "terminal.ansi.bright_black": "{{ .palette.ansi.bright_black }}",
+        "terminal.ansi.dim_black": "{{ .palette.ansi.dim_black }}",
+
+        "terminal.ansi.red": "{{ .palette.ansi.red }}",
+        "terminal.ansi.bright_red": "{{ .palette.ansi.bright_red }}",
+        "terminal.ansi.dim_red": "{{ .palette.ansi.dim_red }}",
+
+        "terminal.ansi.green": "{{ .palette.ansi.green }}",
+        "terminal.ansi.bright_green": "{{ .palette.ansi.bright_green }}",
+        "terminal.ansi.dim_green": "{{ .palette.ansi.dim_green }}",
+
+        "terminal.ansi.yellow": "{{ .palette.ansi.yellow }}",
+        "terminal.ansi.bright_yellow": "{{ .palette.ansi.bright_yellow }}",
+        "terminal.ansi.dim_yellow": "{{ .palette.ansi.dim_yellow }}",
+
+        "terminal.ansi.blue": "{{ .palette.ansi.blue }}",
+        "terminal.ansi.bright_blue": "{{ .palette.ansi.bright_blue }}",
+        "terminal.ansi.dim_blue": "{{ .palette.ansi.dim_blue }}",
+
+        "terminal.ansi.magenta": "{{ .palette.ansi.magenta }}",
+        "terminal.ansi.bright_magenta": "{{ .palette.ansi.bright_magenta }}",
+        "terminal.ansi.dim_magenta": "{{ .palette.ansi.dim_magenta }}",
+
+        "terminal.ansi.cyan": "{{ .palette.ansi.cyan }}",
+        "terminal.ansi.bright_cyan": "{{ .palette.ansi.bright_cyan }}",
+        "terminal.ansi.dim_cyan": "{{ .palette.ansi.dim_cyan }}",
+
+        "terminal.ansi.white": "{{ .palette.ansi.white }}",
+        "terminal.ansi.bright_white": "{{ .palette.ansi.bright_white }}",
+        "terminal.ansi.dim_white": "{{ .palette.ansi.dim_white }}",
+
+        "link_text.hover": "{{ .palette.fg.link_hover }}",
+
+        "version_control.added": "{{ .palette.vcs.added }}",
+        "version_control.modified": "{{ .palette.vcs.modified }}",
+        "version_control.word_added": "{{ .palette.vcs.word_added.rgba }}",
+        "version_control.word_deleted": "{{ .palette.vcs.word_deleted.rgba }}",
+        "version_control.deleted": "{{ .palette.vcs.deleted }}",
+
+        "conflict": "{{ .palette.state.conflict }}",
+        "conflict.background": "{{ .palette.state_bg.conflict }}",
+        "conflict.border": "{{ .palette.state_border.conflict }}",
+
+        "created": "{{ .palette.state.created }}",
+        "created.background": "{{ .palette.state_bg.created }}",
+        "created.border": "{{ .palette.state_border.created }}",
+
+        "deleted": "{{ .palette.state.deleted }}",
+        "deleted.background": "{{ .palette.state_bg.deleted }}",
+        "deleted.border": "{{ .palette.state_border.deleted }}",
+
+        "error": "{{ .palette.state.error }}",
+        "error.background": "{{ .palette.state_bg.error }}",
+        "error.border": "{{ .palette.state_border.error }}",
+
+        "hidden": "{{ .palette.state.hidden }}",
+        "hidden.background": "{{ .palette.state_bg.hidden }}",
+        "hidden.border": "{{ .palette.state_border.hidden }}",
+
+        "hint": "{{ .palette.state.hint }}",
+        "hint.background": "{{ .palette.state_bg.hint }}",
+        "hint.border": "{{ .palette.state_border.hint }}",
+
+        "ignored": "{{ .palette.state.ignored }}",
+        "ignored.background": "{{ .palette.state_bg.ignored }}",
+        "ignored.border": "{{ .palette.state_border.ignored }}",
+
+        "info": "{{ .palette.state.info }}",
+        "info.background": "{{ .palette.state_bg.info }}",
+        "info.border": "{{ .palette.state_border.info }}",
+
+        "modified": "{{ .palette.state.modified }}",
+        "modified.background": "{{ .palette.state_bg.modified }}",
+        "modified.border": "{{ .palette.state_border.modified }}",
+
+        "predictive": "{{ .palette.state.predictive }}",
+        "predictive.background": "{{ .palette.state_bg.predictive }}",
+        "predictive.border": "{{ .palette.state_border.predictive }}",
+
+        "renamed": "{{ .palette.state.renamed }}",
+        "renamed.background": "{{ .palette.state_bg.renamed }}",
+        "renamed.border": "{{ .palette.state_border.renamed }}",
+
+        "success": "{{ .palette.state.success }}",
+        "success.background": "{{ .palette.state_bg.success }}",
+        "success.border": "{{ .palette.state_border.success }}",
+
+        "unreachable": "{{ .palette.state.unreachable }}",
+        "unreachable.background": "{{ .palette.state_bg.unreachable }}",
+        "unreachable.border": "{{ .palette.state_border.unreachable }}",
+
+        "warning": "{{ .palette.state.warning }}",
+        "warning.background": "{{ .palette.state_bg.warning }}",
+        "warning.border": "{{ .palette.state_border.warning }}",
+
+        "players": [
+          {
+            "cursor": "{{ .palette.cursor.blue }}",
+            "background": "{{ .palette.cursor_bg.blue }}",
+            "selection": "{{ .palette.cursor_selection.blue.rgba }}"
+          },
+          {
+            "cursor": "{{ .palette.cursor.purple }}",
+            "background": "{{ .palette.cursor_bg.purple }}",
+            "selection": "{{ .palette.cursor_selection.purple.rgba }}"
+          },
+          {
+            "cursor": "{{ .palette.cursor.orange }}",
+            "background": "{{ .palette.cursor_bg.orange }}",
+            "selection": "{{ .palette.cursor_selection.orange.rgba }}"
+          },
+          {
+            "cursor": "{{ .palette.cursor.magenta }}",
+            "background": "{{ .palette.cursor_bg.magenta }}",
+            "selection": "{{ .palette.cursor_selection.magenta.rgba }}"
+          },
+          {
+            "cursor": "{{ .palette.cursor.cyan }}",
+            "background": "{{ .palette.cursor_bg.cyan }}",
+            "selection": "{{ .palette.cursor_selection.cyan.rgba }}"
+          },
+          {
+            "cursor": "{{ .palette.cursor.red }}",
+            "background": "{{ .palette.cursor_bg.red }}",
+            "selection": "{{ .palette.cursor_selection.red.rgba }}"
+          },
+          {
+            "cursor": "{{ .palette.cursor.yellow }}",
+            "background": "{{ .palette.cursor_bg.yellow }}",
+            "selection": "{{ .palette.cursor_selection.yellow.rgba }}"
+          },
+          {
+            "cursor": "{{ .palette.cursor.green }}",
+            "background": "{{ .palette.cursor_bg.green }}",
+            "selection": "{{ .palette.cursor_selection.green.rgba }}"
+          }
+        ],
+
+        "syntax": {
+          "attribute": {
+            "color": "{{ .palette.syntax.attribute }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "boolean": {
+            "color": "{{ .palette.syntax.boolean }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "comment": {
+            "color": "{{ .palette.fg.comment }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "comment.doc": {
+            "color": "{{ .palette.fg.comment_doc }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "constant": {
+            "color": "{{ .palette.syntax.constant }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "constructor": {
+            "color": "{{ .palette.syntax.constructor }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "embedded": {
+            "color": "{{ .palette.syntax.embedded }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "emphasis": {
+            "color": "{{ .palette.syntax.emphasis }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "emphasis.strong": {
+            "color": "{{ .palette.syntax.emphasis_strong }}",
+            "font_style": null,
+            "font_weight": 700
+          },
+          "enum": {
+            "color": "{{ .palette.syntax.enum }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "function": {
+            "color": "{{ .palette.syntax.function }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "hint": {
+            "color": "{{ .palette.syntax.hint }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "keyword": {
+            "color": "{{ .palette.syntax.keyword }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "label": {
+            "color": "{{ .palette.syntax.label }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "link_text": {
+            "color": "{{ .palette.syntax.link_text }}",
+            "font_style": "italic",
+            "font_weight": null
+          },
+          "link_uri": {
+            "color": "{{ .palette.syntax.link_uri }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "namespace": {
+            "color": "{{ .palette.syntax.namespace }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "number": {
+            "color": "{{ .palette.syntax.number }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "operator": {
+            "color": "{{ .palette.syntax.operator }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "predictive": {
+            "color": "{{ .palette.syntax.predictive }}",
+            "font_style": "italic",
+            "font_weight": null
+          },
+          "preproc": {
+            "color": "{{ .palette.syntax.preproc }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "primary": {
+            "color": "{{ .palette.syntax.primary }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "property": {
+            "color": "{{ .palette.syntax.property }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "punctuation": {
+            "color": "{{ .palette.syntax.punctuation }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "punctuation.bracket": {
+            "color": "{{ .palette.syntax.punctuation_bracket }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "punctuation.delimiter": {
+            "color": "{{ .palette.syntax.punctuation_delimiter }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "punctuation.list_marker": {
+            "color": "{{ .palette.syntax.punctuation_list_marker }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "punctuation.markup": {
+            "color": "{{ .palette.syntax.punctuation_markup }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "punctuation.special": {
+            "color": "{{ .palette.syntax.punctuation_special }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "selector": {
+            "color": "{{ .palette.syntax.selector }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "selector.pseudo": {
+            "color": "{{ .palette.syntax.selector_pseudo }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "string": {
+            "color": "{{ .palette.syntax.string }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "string.escape": {
+            "color": "{{ .palette.syntax.string_escape }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "string.regex": {
+            "color": "{{ .palette.syntax.string_regex }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "string.special": {
+            "color": "{{ .palette.syntax.string_special }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "string.special.symbol": {
+            "color": "{{ .palette.syntax.string_special_symbol }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "tag": {
+            "color": "{{ .palette.syntax.tag }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "text.literal": {
+            "color": "{{ .palette.syntax.text_literal }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "title": {
+            "color": "{{ .palette.syntax.title }}",
+            "font_style": null,
+            "font_weight": 400
+          },
+          "type": {
+            "color": "{{ .palette.syntax.type }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "variable": {
+            "color": "{{ .palette.syntax.variable }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "variable.parameter": {
+            "color": "{{ .palette.syntax.variable_parameter }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "variable.special": {
+            "color": "{{ .palette.syntax.variable_special }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "variant": {
+            "color": "{{ .palette.syntax.variant }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "diff.plus": {
+            "color": "{{ .palette.syntax.diff_added }}",
+            "font_style": null,
+            "font_weight": null
+          },
+          "diff.minus": {
+            "color": "{{ .palette.syntax.diff_removed }}",
+            "font_style": null,
+            "font_weight": null
+          }
+        }
+      }
+    }
+  ]
+}

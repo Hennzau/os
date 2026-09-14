@@ -1,0 +1,110 @@
+// Zed's settings as the image ships them, copied into ~/.config/zed once
+// (usr/share/user-tmpfiles.d/95-dev.conf): Zed rewrites the file when a
+// setting changes in its UI, so from then on it is yours. Every language
+// server and formatter is the system's, from 95-dev's packages - Zed
+// downloads none.
+{
+    "theme": "elvOS Light",
+    "cli_default_open_behavior": "existing_window",
+    "disable_ai": true,
+    "base_keymap": "None",
+    "autosave": "on_focus_change",
+    "format_on_save": "on",
+    "terminal": {
+        "shell": { "program": "/bin/nu" }
+    },
+    "project_panel": {
+        "dock": "left"
+    },
+
+    // Languages Zed has no support for built in. Extensions come from Zed's
+    // registry at first start; their servers are pointed at /usr below.
+    "auto_install_extensions": {
+        "toml": true,
+        "html": true,
+        "nu": true,
+        "git-firefly": true,
+        "qml": true,
+        "ini": true,
+        "typst": true,
+        "just": true,
+        "color-highlight": true,
+        "zig": true,
+        "kdl": true,
+        "basher": true,
+        "marksman": true
+    },
+
+    "telemetry": {
+        "diagnostics": false,
+        "metrics": false
+    },
+
+    // For the npm-built servers, the system's node rather than one Zed
+    // fetches.
+    "node": { "path": "/usr/bin/node" },
+
+    "lsp": {
+        "rust-analyzer": {
+            "binary": { "path": "/usr/bin/rust-analyzer" },
+            "initialization_options": { "check": { "command": "clippy" } }
+        },
+        "clangd": { "binary": { "path": "/usr/bin/clangd" } },
+        "zls": { "binary": { "path": "/usr/bin/zls" } },
+        "ty": { "binary": { "path": "/usr/bin/ty", "arguments": ["server"] } },
+        "ruff": { "binary": { "path": "/usr/bin/ruff", "arguments": ["server"] } },
+        "tinymist": {
+            "binary": { "path": "/usr/bin/tinymist" },
+            "initialization_options": { "formatterMode": "typstyle", "exportPdf": "onSave" }
+        },
+        "nu": { "binary": { "path": "/usr/bin/nu", "arguments": ["--lsp"] } },
+        // No entry for QML: its extension takes no binary path, and finds
+        // qmlls6 (qt6-declarative's) on PATH itself.
+        "just-lsp": { "binary": { "path": "/usr/bin/just-lsp" } },
+        "marksman": { "binary": { "path": "/usr/bin/marksman", "arguments": ["server"] } },
+        // shellcheck (diagnostics) and shfmt (formatting) are picked up by it
+        // from PATH.
+        "bash-language-server": {
+            "binary": { "path": "/usr/bin/bash-language-server", "arguments": ["start"] }
+        },
+        "yaml-language-server": {
+            "binary": { "path": "/usr/bin/yaml-language-server", "arguments": ["--stdio"] }
+        },
+        "json-language-server": {
+            "binary": { "path": "/usr/bin/vscode-json-languageserver", "arguments": ["--stdio"] }
+        }
+    },
+
+    "languages": {
+        // ty for types, ruff for lint and format - not Zed's default
+        // basedpyright.
+        "Python": {
+            "language_servers": ["ty", "ruff", "!basedpyright", "!pyright", "!pylsp", "!pyrefly", "..."],
+            "formatter": { "language_server": { "name": "ruff" } }
+        },
+        // The TOML and KDL extensions have no language server: format with
+        // the CLI tools, reading the buffer on stdin.
+        "TOML": {
+            "formatter": { "external": { "command": "taplo", "arguments": ["fmt", "-"] } }
+        },
+        "KDL": {
+            "formatter": { "external": { "command": "kdlfmt", "arguments": ["format", "-"] } }
+        }
+    },
+
+    "tab_size": 4,
+    "preferred_line_length": 100,
+    "show_whitespaces": "selection",
+    "indent_guides": {
+        "enabled": true
+    },
+
+    "scrollbar": {
+        "show": "auto"
+    },
+
+    "buffer_font_family": "{{ .font.mono }}",
+    "buffer_font_size": {{ .font.size.editor }},
+    "ui_font_family": "{{ .font.sans }}",
+    "ui_font_size": {{ .font.size.editor }}
+}
