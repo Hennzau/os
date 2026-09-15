@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+"""Give the traffic to the fastest WireGuard tunnel, and move it when that
+changes.
+
+Every tunnel elvos-wg-enroll wrote is up and holding a handshake with its
+provider, each with its own routing table and firewall mark. None of them
+carries general traffic by itself: that is one routing policy rule, "not
+from all fwmark <mark> lookup <table>", and this daemon owns it. Switching
+tunnels is moving that rule, which is why enrolling more is all it takes.
+
+WireGuard has no link state - an interface is up whether or not the peer
+answers - so health is measured, every INTERVAL seconds:
+
+  * a ping bound to the interface (so it goes through that peer whatever the
+    rules say) gives loss and round-trip time;
+  * `wg show <if> latest-handshakes` gives the age of the last handshake.
+
+A tunnel is healthy when its interface is up, it answered the ping, and its
+handshake is younger than three minutes. The fastest healthy one wins, but
+only after it has been faster than the current one by MARGIN ms for ROUNDS
+rounds in a row, so a jittery link cannot start flapping.
+
+**The rule is never simply removed.** If nothing is healthy the last choice
+keeps the traffic: it then fails inside the tunnel rather than leaking onto
+the plain link. A switch adds the new rule before deleting the old one, for
+the same reason.
+
+`vpn use NAME` pins a tunnel by writing /run/elvos-vpn/pin; `vpn auto`
+deletes it. /run/elvos-vpn/state.json is what `vpn status` reads.
+
+  --once      one round, then exit
+  --dry-run   decide and report, change no rules (implies --once)
+"""
+
+import json
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+# Both are only ever elsewhere in a test (--dry-run against a scratch copy).
+NETWORK_DIR = Path(os.environ.get("ELVOS_VPN_NETWORK_DIR", "/etc/systemd/network"))
+RUN = Path(os.environ.get("ELVOS_VPN_RUN", "/run/elvos-vpn"))
+STATE = RUN / "state.json"
+PIN = RUN / "pin"
+
+# The free priorities under networkd's own rules (32763, 32764) and above
+# the kernel's main table lookup (32766).
+BAND_LOW, BAND_HIGH = 32750, 32765
+
+PROBE = os.environ.get("ELVOS_VPN_PROBE", "1.1.1.1")
+INTERVAL = int(os.environ.get("ELVOS_VPN_INTERVAL", "20"))
+MARGIN_MS = float(os.environ.get("ELVOS_VPN_MARGIN", "25"))
+ROUNDS = int(os.environ.get("ELVOS_VPN_ROUNDS", "3"))
+# PersistentKeepalive is 25 s, so a tunnel that has said nothing for three
+# minutes is not talking to its peer any more.
+HANDSHAKE_DEAD = 190
+
+
+def run(*cmd, check=False):
+    return subprocess.run(cmd, capture_output=True, text=True, check=check)
+
+
+def tunnels():
+    """Every enrolled tunnel: name, interface, firewall mark, table."""
+    found = []
+    for netdev in sorted(NETWORK_DIR.glob("50-wg-*.netdev")):
+        text = netdev.read_text()
+        fields = dict(re.findall(r"^(Name|FirewallMark|RouteTable)=(\S+)$", text, re.MULTILINE))
+        if len(fields) == 3:
+            found.append(
+                {
+                    "name": netdev.stem.removeprefix("50-wg-"),
+                    "iface": fields["Name"],
+                    "mark": fields["FirewallMark"],
+                    "table": fields["RouteTable"],
+                }
+            )
+    return found
+
+
+def handshake_age(iface):
+    """Seconds since this peer's last handshake, None if it never had one."""
+    out = run("wg", "show", iface, "latest-handshakes")
+    stamps = [int(line.split()[-1]) for line in out.stdout.splitlines() if line.strip()]
+    newest = max(stamps, default=0)
+    return None if newest == 0 else max(0, int(time.time()) - newest)
+
+
+def probe(iface):
+    """Loss (percent) and average round trip (ms) through this interface."""
+    # -W 3: a tunnel can be 500 ms away and jittery (this laptop's is), and
+    # a round read as 100% loss is a tunnel read as dead.
+    out = run("ping", "-I", iface, "-c", "4", "-W", "3", "-i", "0.3", "-q", "-n", PROBE)
+    loss = re.search(r"([\d.]+)% packet loss", out.stdout)
+    rtt = re.search(r"= [\d.]+/([\d.]+)/", out.stdout)
+    return (
+        float(loss.group(1)) if loss else 100.0,
+        float(rtt.group(1)) if rtt else None,
+    )
+
+
+def measure(tunnel):
+    """The tunnel, with how it is doing. Score is what tunnels are ranked by."""
+    iface = tunnel["iface"]
+    # A WireGuard interface reports operstate "unknown" whether or not it is
+    # up; IFF_UP in its flags is the answer.
+    flags = Path("/sys/class/net") / iface / "flags"
+    up = flags.exists() and bool(int(flags.read_text().strip(), 16) & 1)
+    age = handshake_age(iface) if up else None
+    loss, rtt = probe(iface) if up else (100.0, None)
+    healthy = up and rtt is not None and (age is None or age < HANDSHAKE_DEAD)
+    return {**tunnel, "up": up, "handshake": age, "loss": loss, "rtt": rtt, "healthy": healthy}
+
+
+def rank(measured, average):
+    """Score each tunnel off a smoothed round trip: one round of this
+    laptop's own tunnel read 121 ms and the next 459 ms, and two tunnels
+    ranked on a single round like that would trade places all day. Loss
+    counts double - 10% of packets gone hurts more than 10 ms."""
+    for t in measured:
+        if not t["healthy"]:
+            t["average"], t["score"] = average.get(t["name"]), None
+            continue
+        before = average.get(t["name"])
+        average[t["name"]] = t["rtt"] if before is None else 0.6 * before + 0.4 * t["rtt"]
+        t["average"] = round(average[t["name"]], 1)
+        t["score"] = t["average"] * (1 + t["loss"] / 50)
+    return measured
+
+
+def our_rules():
+    """The catch-all rules we have installed, of either family, newest
+    (lowest priority) first."""
+    found = []
+    for family in ("-4", "-6"):
+        out = run("ip", "-j", family, "rule", "show")
+        found += [
+            {**r, "family": family}
+            for r in json.loads(out.stdout or "[]")
+            if "fwmark" in r and BAND_LOW <= r.get("priority", 0) <= BAND_HIGH
+        ]
+    return sorted(found, key=lambda r: r["priority"])
+
+
+def rule(action, tunnel, priority):
+    """Both families. `ip rule` alone means IPv4, and an IPv6 default route
+    sitting in the tunnel's table with no rule pointing at it is a leak: v4
+    left through the tunnel while v6 went out over the plain link, which is
+    what ifconfig.co showed after the first reboot."""
+    for family in ("-4", "-6"):
+        run(
+            "ip",
+            family,
+            "rule",
+            action,
+            "not",
+            "fwmark",
+            tunnel["mark"],
+            "table",
+            tunnel["table"],
+            "priority",
+            str(priority),
+        )
+
+
+def active_name(measured):
+    """Which tunnel the rule in force points at, if any."""
+    rules = our_rules()
+    if not rules:
+        return None
+    table = str(rules[0]["table"])
+    return next((t["name"] for t in measured if t["table"] == table), None)
+
+
+def give_traffic_to(tunnel, dry_run=False):
+    """Move the catch-all rule, without ever leaving the traffic unrouted:
+    the new rule goes in above everything of ours, the old ones go, and the
+    new one is then settled at the top of the band."""
+    if dry_run:
+        return
+    rule("add", tunnel, BAND_LOW)
+    for r in our_rules():
+        if r["priority"] != BAND_LOW:
+            run("ip", r["family"], "rule", "del", "priority", str(r["priority"]))
+    rule("add", tunnel, BAND_HIGH)
+    for family in ("-4", "-6"):
+        run("ip", family, "rule", "del", "priority", str(BAND_LOW))
+
+
+def choose(measured, active, better_for):
+    """The tunnel that should carry the traffic, and why."""
+    healthy = [t for t in measured if t["score"] is not None]
+    if not healthy:
+        return None, "nothing healthy - leaving the traffic where it is"
+
+    pinned = PIN.read_text().strip() if PIN.exists() else ""
+    if pinned:
+        for t in healthy:
+            if t["name"] == pinned:
+                return t, f"pinned to {pinned}"
+        return None, f"pinned to {pinned}, which is not healthy"
+
+    best = min(healthy, key=lambda t: t["score"])
+    if active is None:
+        return best, f"nothing carries the traffic yet: {best['name']}"
+    if active not in [t["name"] for t in healthy]:
+        return best, f"{active} is not healthy: {best['name']}"
+    if best["name"] == active:
+        return None, f"{active} is the fastest"
+
+    current = next(t for t in healthy if t["name"] == active)
+    if best["score"] + MARGIN_MS >= current["score"]:
+        return None, f"{best['name']} is not {MARGIN_MS:.0f} ms better than {active}"
+    if better_for < ROUNDS:
+        return None, f"{best['name']} is faster, {better_for}/{ROUNDS} rounds"
+    return best, f"{best['name']} beats {active} by {current['score'] - best['score']:.0f} ms"
+
+
+def main():
+    dry_run = "--dry-run" in sys.argv
+    once = "--once" in sys.argv or dry_run
+    RUN.mkdir(parents=True, exist_ok=True)
+
+    running = {"yes": True}
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, lambda *_: running.update(yes=False))
+
+    # At boot nothing of ours is in force yet, and a probe takes a couple of
+    # seconds - seconds in which traffic would go out untunnelled. So the
+    # first tunnel that is up gets the rule straight away; the round below
+    # then moves it to the fastest.
+    if not dry_run and not our_rules():
+        for t in tunnels():
+            if measure(t)["up"]:  # not "healthy": a probe would cost seconds
+                give_traffic_to(t)
+                break
+
+    better, better_for, average = None, 0, {}
+    while running["yes"]:
+        measured = rank([measure(t) for t in tunnels()], average)
+        active = active_name(measured)
+        best = min(
+            (t for t in measured if t["score"] is not None),
+            key=lambda t: t["score"],
+            default=None,
+        )
+        # Rounds in a row the same tunnel has been the best one.
+        if best and best["name"] == better:
+            better_for += 1
+        else:
+            better, better_for = (best["name"] if best else None), 1
+
+        picked, why = choose(measured, active, better_for)
+        if picked:
+            give_traffic_to(picked, dry_run)
+            active, better_for = picked["name"], 0
+
+        state = {
+            "updated": int(time.time()),
+            "active": active,
+            "pinned": PIN.read_text().strip() if PIN.exists() else None,
+            "reason": why,
+            "probe": PROBE,
+            "tunnels": measured,
+        }
+        tmp = STATE.with_suffix(".new")
+        tmp.write_text(json.dumps(state, indent=2))
+        tmp.chmod(0o644)
+        tmp.replace(STATE)
+        if dry_run:
+            print(json.dumps(state, indent=2))
+
+        if once:
+            return
+        time.sleep(INTERVAL)
+
+
+if __name__ == "__main__":
+    main()

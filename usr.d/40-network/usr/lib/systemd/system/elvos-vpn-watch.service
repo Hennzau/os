@@ -1,0 +1,30 @@
+[Unit]
+Description=Give the traffic to the fastest WireGuard tunnel
+Documentation=file:/usr/bin/elvos-vpn-watch
+# Nothing to do until a tunnel is enrolled (elvos-wg-enroll).
+ConditionPathExistsGlob=/etc/systemd/network/50-wg-*.netdev
+After=systemd-networkd.service
+Wants=systemd-networkd.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/elvos-vpn-watch
+Restart=always
+RestartSec=5
+# /run/elvos-vpn: the state `vpn status` reads and the pin `vpn use` writes.
+RuntimeDirectory=elvos-vpn
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+# It adds routing policy rules, reads WireGuard's handshakes and pings
+# through an interface; nothing else.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

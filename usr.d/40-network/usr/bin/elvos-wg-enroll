@@ -1,19 +1,29 @@
 #!/bin/bash
-# elvos-wg-enroll [--manual] CONFIG
+# elvos-wg-enroll [--manual] [--name NAME] CONFIG
 #
 # Turn a wg-quick config - what a WireGuard provider hands out - into a
-# systemd-networkd tunnel, wg0. The private key goes into an encrypted
-# credential (sealed to the TPM where there is one), not into a file in
-# /etc. All traffic goes through the tunnel, except to private networks.
-# DNS is left as it is: the config's DNS= line is ignored.
+# systemd-networkd tunnel. The private key goes into an encrypted credential
+# (sealed to the TPM where there is one), not into a file in /etc. DNS is
+# left as it is: the config's DNS= line is ignored.
 #
-#   --manual   do not bring wg0 up at boot; `networkctl up wg0` does
+# Enrol as many as you like: each gets its own interface (wg-NAME), routing
+# table and firewall mark. Which one carries your traffic is not decided
+# here - elvos-vpn-watch measures them all and gives the catch-all routing
+# rule to the fastest (`vpn status`, `vpn use NAME` to pin one).
 #
-# Run as root. Enrolling again replaces the tunnel.
+#   --name NAME  what to call it (default: the config's file name)
+#   --manual     do not bring it up at boot; `networkctl up wg-NAME` does
+#   --root DIR   write under DIR instead of /, start nothing and skip the
+#                credential - for testing this script, nothing else
+#
+# Run as root. Enrolling the same name again replaces that tunnel.
 set -eu -o pipefail
 
-netdev=50-wg0
-config="" activation=up
+# The first tunnel gets these, the next ones the values after them.
+table_base=51820
+mark_base=0xca6c
+
+config="" activation=up name="" root=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -21,8 +31,16 @@ while [[ $# -gt 0 ]]; do
         activation=manual
         shift
         ;;
+    --name)
+        name=${2-}
+        shift 2
+        ;;
+    --root)
+        root=${2-}
+        shift 2
+        ;;
     -h | --help)
-        sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
     -*)
@@ -36,18 +54,27 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+die() {
+    echo "${0##*/}: $*" >&2
+    exit 1
+}
+
 [[ -n $config ]] || {
     echo "${0##*/}: need a wg-quick config file" >&2
     exit 2
 }
-[[ -r $config ]] || {
-    echo "${0##*/}: cannot read $config" >&2
-    exit 1
+[[ -r $config ]] || die "cannot read $config"
+[[ -n $root || $EUID -eq 0 ]] || die "must run as root"
+
+# The interface is wg-NAME, and an interface name is 15 characters at most.
+[[ -n $name ]] || {
+    name=${config##*/}
+    name=${name%.conf}
 }
-[[ $EUID -eq 0 ]] || {
-    echo "${0##*/}: must run as root" >&2
-    exit 1
-}
+name=${name//[^A-Za-z0-9_-]/-}
+[[ ${#name} -le 12 ]] || die "name '$name' is longer than 12 characters"
+iface="wg-$name"
+netdev="50-$iface"
 
 # section.Key=value, one per line, for every non-empty setting.
 parse() {
@@ -74,55 +101,80 @@ allowed_ips=$(get Peer.AllowedIPs)
 keepalive=$(get Peer.PersistentKeepalive)
 
 for v in private_key addresses peer_key endpoint allowed_ips; do
-    [[ -n ${!v} ]] || {
-        echo "${0##*/}: $config has no ${v//_/ }" >&2
-        exit 1
-    }
+    [[ -n ${!v} ]] || die "$config has no ${v//_/ }"
 done
 : "${keepalive:=25}"
 
 # Before the umask below: on a fresh /etc these do not exist yet, and a
 # network directory made 0700 is one networkd - not root - cannot read.
-install -d -m 0755 /etc/systemd /etc/systemd/network
-install -d -m 0700 /etc/credstore.encrypted
+install -d -m 0755 "${root}/etc/systemd" "${root}/etc/systemd/network"
+install -d -m 0700 "${root}/etc/credstore.encrypted"
+
+# wg0 from the single-tunnel version of this script: its own catch-all rule
+# would outrank whatever elvos-vpn-watch chooses.
+if [[ -e "${root}/etc/systemd/network/50-wg0.netdev" ]]; then
+    rm -f "${root}/etc/systemd/network/50-wg0.netdev" "${root}/etc/systemd/network/50-wg0.network" \
+        "${root}/etc/credstore.encrypted/network.wireguard.private.50-wg0"
+    echo "Removed the old single-tunnel wg0; enrol its config again to keep it."
+fi
+
+# The lowest table and mark no other tunnel is using: they pair up, so a
+# tunnel's own packets (marked) never re-enter its own table.
+index=0
+while grep -qs "^RouteTable=$((table_base + index))$" "${root}"/etc/systemd/network/50-wg-*.netdev; do
+    if [[ -e "${root}/etc/systemd/network/${netdev}.netdev" ]] &&
+        grep -qs "^RouteTable=$((table_base + index))$" "${root}/etc/systemd/network/${netdev}.netdev"; then
+        break # this tunnel's own, which is about to be rewritten
+    fi
+    index=$((index + 1))
+done
+table=$((table_base + index))
+mark=$(printf '0x%x' $((mark_base + index)))
 
 umask 077
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 printf '%s' "$private_key" >"$tmp/private"
 
-systemd-creds encrypt --name="network.wireguard.private.${netdev}" \
-    --with-key=auto "$tmp/private" \
-    "/etc/credstore.encrypted/network.wireguard.private.${netdev}"
+# Sealed to the TPM where there is one, to the host key otherwise. Every
+# key systemd-creds can use needs root, so a test root gets a placeholder.
+credential="${root}/etc/credstore.encrypted/network.wireguard.private.${netdev}"
+if [[ -n $root ]]; then
+    echo "test root: not encrypting the key" >&2
+    : >"$credential"
+else
+    systemd-creds encrypt --name="network.wireguard.private.${netdev}" \
+        --with-key=auto "$tmp/private" "$credential"
+fi
 
 umask 022
 
 # No PrivateKey=: networkd takes it from the credential above.
-cat >"/etc/systemd/network/${netdev}.netdev" <<EOF
+cat >"${root}/etc/systemd/network/${netdev}.netdev" <<EOF
 [NetDev]
-Name=wg0
+Name=${iface}
 Kind=wireguard
-Description=WireGuard VPN
+Description=WireGuard VPN ${name}
 
 [WireGuard]
-FirewallMark=0xca6c
+FirewallMark=${mark}
 
 [WireGuardPeer]
 PublicKey=${peer_key}
 Endpoint=${endpoint}
 AllowedIPs=${allowed_ips}
 PersistentKeepalive=${keepalive}
-RouteTable=51820
+RouteTable=${table}
 EOF
 
-# The peer's routes live in table 51820. The rules, in order: private
-# networks stay on the main table, so the LAN is reachable with the tunnel
-# up; anything more specific than a default route stays on it too;
-# everything else, except the tunnel's own packets (marked 0xca6c), goes
-# through the tunnel.
+# The peer's routes live in the tunnel's own table. The rules here keep
+# private networks and anything more specific than a default route on the
+# main table, so the LAN stays reachable; the rule that sends everything
+# else into a tunnel is elvos-vpn-watch's, which is how it switches.
 {
-    printf '[Match]\nName=wg0\n\n[Link]\nActivationPolicy=%s\n\n[Network]\n' "$activation"
+    printf '[Match]\nName=%s\n\n[Link]\nActivationPolicy=%s\n\n[Network]\n' "$iface" "$activation"
     printf '%s' "$addresses" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;/^$/d;s/^/Address=/'
+    printf '\n'
     cat <<'EOF'
 
 [RoutingPolicyRule]
@@ -145,27 +197,29 @@ Table=main
 SuppressPrefixLength=0
 Priority=32764
 Family=both
-
-[RoutingPolicyRule]
-FirewallMark=0xca6c
-InvertRule=yes
-Table=51820
-Priority=32765
-Family=both
 EOF
-} >"/etc/systemd/network/${netdev}.network"
+} >"${root}/etc/systemd/network/${netdev}.network"
 
 # A restart, not a reload: networkd imports its credentials when it starts.
-systemctl restart systemd-networkd
+if [[ -z $root ]]; then
+    systemctl restart systemd-networkd
+    # Unconditionally: the unit is skipped at boot while no tunnel exists
+    # (ConditionPathExistsGlob), and `systemctl is-enabled` calls it
+    # "disabled" anyway - this image enables units with a .wants symlink in
+    # /usr, which systemd honours but does not count as enabled.
+    systemctl restart elvos-vpn-watch.service || true
+fi
 
+enrolled=("${root}"/etc/systemd/network/50-wg-*.netdev)
 cat <<MSG
 Enrolled from: ${config}
+  name       : ${name}  (interface ${iface}, table ${table}, mark ${mark})
   endpoint   : ${endpoint}
   addresses  : ${addresses}
   connect    : $([[ $activation == up ]] && echo "at every boot" || echo "by hand (--manual)")
 
-Up:   networkctl up wg0
-Down: networkctl down wg0
+${#enrolled[@]} tunnel(s) enrolled. The fastest carries your traffic: vpn status
+Pin one: vpn use ${name}   Back to automatic: vpn auto
 
 ${config} still holds the private key - delete it: shred -u ${config}
 MSG

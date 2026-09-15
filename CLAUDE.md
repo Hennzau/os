@@ -749,6 +749,7 @@ one day - `/usr/share/qmk/userspace`, `/usr/share/distrobox/qmk.ini`
   to /etc/iwd). Verified on and off via /proc/<iwd>/environ. Also
   wireless-regdb, `elvos-wifi-8021x` (elvOS's without
   the eduroam search, user wanted generic), nushell `wifi`/`vpn` commands.
+  (rewritten 2026-09-15 for several tunnels - see "Several VPNs".)
   ssh: `ssh_config.d/50-elvos.conf` linked; `ssh_config` itself is copied by
   openssh's own tmpfiles (a `L` for it was a no-op). ssh-agent.socket by user
   preset, `SSH_AUTH_SOCK` in environment.d and the nushell autoload.
@@ -1031,6 +1032,84 @@ For a networking course and later Bluetooth debugging on the main laptop.
   btmgmt), bluez-deprecated-tools (hciconfig, hcitool - Arch dropped
   hcidump), usbutils (lsusb); 00-base: strace, lsof; pciutils, rfkill, and
   the whole linux-firmware (rtl_bt/ included) were already in.
+
+## Several VPNs, the fastest one wins (2026-09-15)
+
+The user asked whether one WireGuard tunnel could fail over to another when
+it is down or slow, and chose **always the fastest**, with every tunnel kept
+up. WireGuard has no link state - an interface is up whether or not the peer
+answers - so it has to be measured.
+
+- `elvos-wg-enroll [--manual] [--name NAME] CONFIG` takes as many configs as
+  you like. Each is `wg-NAME` with its own routing table (51820 + i) and
+  firewall mark (0xca6c + i), i being the lowest free index, kept when the
+  same name is enrolled again. The old single-tunnel `50-wg0.*` is deleted
+  on the first enrolment (its own catch-all rule would outrank everything).
+- **networkd owns the tunnels, not the choice**: addresses, the peer's routes
+  in the tunnel's table, and the rules keeping private networks and
+  more-specific routes on the main table. The rule that sends everything else
+  into a tunnel - `not from all fwmark <mark> lookup <table>` - belongs to
+  **`elvos-vpn-watch`**, and moving it is how it switches. A networkd.conf
+  drop-in sets `ManageForeignRoutingPolicyRules=no`, or networkd would
+  delete that rule on every reconfigure.
+- **Health**: `ping -I <iface>` (SO_BINDTODEVICE, so it goes through that
+  peer whatever the rules say) for loss and RTT, plus `wg show <iface>
+  latest-handshakes` - dead after 190 s, PersistentKeepalive being 25 s.
+  Score = rtt × (1 + loss/50). A switch needs the challenger to be 25 ms
+  better for 3 rounds in a row (20 s each), so a jittery link cannot flap.
+- **It never just removes the rule**: with nothing healthy the last choice
+  keeps the traffic, which then fails inside the tunnel instead of leaking
+  onto the plain link, and a switch adds the new rule (priority 32750)
+  before deleting the old, then settles it at 32765. At startup, before any
+  probe, the first tunnel that is up gets the rule straight away.
+- `vpn list` / `vpn status` read `/run/elvos-vpn/state.json` (the daemon's
+  RuntimeDirectory, 0644); `vpn use NAME` writes `/run/elvos-vpn/pin` and
+  restarts the unit, `vpn auto` deletes it. `vpn up/down NAME` is the
+  interface itself.
+- **Testing without root or a VPN**: `elvos-vpn-watch --dry-run` decides and
+  prints state, changing no rules, and honours `ELVOS_VPN_NETWORK_DIR` /
+  `ELVOS_VPN_RUN`; `elvos-wg-enroll --root DIR` writes a tree somewhere else
+  and skips the credential (systemd-creds needs root for every key type -
+  even `--with-key=null` asks polkit). Verified that way: against the live
+  wg0 it measured 250-370 ms at 0% loss, read the existing rule as the
+  active tunnel, and ignored a second, dead one; enrolment into a test root
+  gave three tunnels with distinct interfaces, tables and marks, stable when
+  re-enrolled. **Not yet run as root, nor in a booted image.**
+- **What the first run on hardware taught** (2026-09-15, the user enrolled
+  after a reboot and `vpn status` said "no tunnel enrolled"):
+  - The unit is **skipped at boot while no tunnel is enrolled**
+    (ConditionPathExistsGlob) - right - so enrolment has to start it. The
+    enrolment gated that on `systemctl is-enabled`, which reports
+    **disabled** for a unit this image enables with a `.wants` symlink in
+    /usr (rtkit-daemon.service reads the same way), so the daemon never
+    started. It now restarts the unit unconditionally, `|| true`.
+    `systemctl list-dependencies multi-user.target` does show the unit, and
+    the boot after a tunnel exists starts it.
+  - `vpn use` wrote the pin into the daemon's RuntimeDirectory before the
+    daemon had ever run; it creates /run/elvos-vpn first now. `vpn status`
+    and `vpn list` say "enrolled: … / watcher not running" instead of "no
+    tunnel enrolled", and `vpn watch` starts it by hand.
+  - **The probe was too strict**: `ping -W 1` on a tunnel that answers in
+    120-460 ms (this provider) read whole rounds as 100% loss, i.e. as a
+    dead tunnel. Now `-c 4 -W 3`, and tunnels are ranked on a **smoothed**
+    round trip (EWMA, 0.6/0.4) rather than one round, since two tunnels
+    ranked on jitter like that would trade places all day.
+  - nushell reads a bare integer as **nanoseconds**: `$state.updated | into
+    datetime` printed "56 years ago" until multiplied by 1_000_000_000.
+- **`ip rule` means IPv4** (2026-09-15, found on the second reboot): the
+  daemon installed the catch-all for v4 only, so v4 left through the tunnel
+  (146.70.194.6) while **IPv6 went out over the plain link** - `curl
+  https://ifconfig.co` answered with the ISP's 2a02:8429:… address, the same
+  one an explicit `--interface wlan0` gave. The tunnel's v6 default route
+  was in table 51820 all along with no rule pointing at it; networkd's old
+  single-tunnel rule had `Family=both`, so this was a regression, not an old
+  hole. `rule()` and the deletions now run for `-4` and `-6`, and `vpn
+  status` prints **egress_v4 and egress_v6** - one address of each is the
+  only way to see such a leak.
+- Known gap: a few seconds at boot between networkd bringing a tunnel up and
+  the daemon installing the rule - traffic in that window is not tunnelled.
+  networkd used to install the rule with the link. A kill switch (default
+  route blackholed until a tunnel is up) would close it; not asked for.
 
 ## Main laptop's Bluetooth: RTL8852BD eco 4 (2026-09-14)
 

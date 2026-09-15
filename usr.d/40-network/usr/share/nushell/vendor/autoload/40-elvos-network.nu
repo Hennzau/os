@@ -101,25 +101,94 @@ def "wifi 8021x remove" [ssid: string] {
     run0 elvos-wifi-8021x remove $ssid
 }
 
-# Set up the VPN from a wg-quick config file (see elvos-wg-enroll --help).
+# The VPN: as many WireGuard tunnels as you enrol, with the fastest of them
+# carrying the traffic (elvos-vpn-watch measures them every 20 s).
+
+def vpn-state []: nothing -> any {
+    let f = "/run/elvos-vpn/state.json"
+    if ($f | path exists) { open $f } else { null }
+}
+
+# The tunnels on disk, which is what there is to say when the watcher is not
+# running to measure them.
+def vpn-enrolled []: nothing -> list<string> {
+    glob /etc/systemd/network/50-wg-*.netdev
+    | each { $in | path basename | str replace --regex '^50-wg-(.*)\.netdev$' '$1' }
+}
+
+def vpn-not-running []: nothing -> record {
+    let names = (vpn-enrolled)
+    if ($names | is-empty) {
+        { vpn: "no tunnel enrolled", enroll: "vpn enroll CONFIG" }
+    } else {
+        {
+            vpn: $"enrolled: ($names | str join ', ')"
+            watcher: "not running - run0 systemctl start elvos-vpn-watch"
+        }
+    }
+}
+
+# Add a tunnel from a wg-quick config file (see elvos-wg-enroll --help).
 def "vpn enroll" [
     config: path
+    --name: string          # what to call it; default: the file's name
     --manual                # do not bring it up at boot
 ] {
-    let args = if $manual { ["--manual"] } else { [] }
+    mut args = []
+    if $manual { $args = ($args | append "--manual") }
+    if $name != null { $args = ($args | append ["--name" $name]) }
     run0 elvos-wg-enroll ...$args ($config | path expand)
 }
 
-def "vpn up" [] { run0 networkctl up wg0 }
-
-def "vpn down" [] { run0 networkctl down wg0 }
-
-def "vpn status" [] {
-    if not ("/sys/class/net/wg0" | path exists) {
-        return { tunnel: "not enrolled" }
-    }
-    {
-        tunnel: (open --raw /sys/class/net/wg0/operstate | str trim | if $in == "down" { "down" } else { "up" })
-        egress_ip: (do --ignore-errors { ^curl -s --max-time 8 https://ifconfig.co } | default "" | str trim)
+# Every tunnel, as the watcher last measured it.
+def "vpn list" []: nothing -> table {
+    let state = (vpn-state)
+    if $state == null { return [(vpn-not-running)] }
+    $state.tunnels | each { |t|
+        {
+            tunnel: $t.name
+            carrying: (if $t.name == $state.active { "yes" } else { "" })
+            up: $t.up
+            rtt: (if $t.rtt == null { "-" } else { $"($t.rtt | math round -p 0) ms" })
+            average: (if $t.average? == null { "-" } else { $"($t.average | math round -p 0) ms" })
+            loss: $"($t.loss)%"
+            handshake: (if $t.handshake == null { "never" } else { $"($t.handshake)s ago" })
+        }
     }
 }
+
+def "vpn status" []: nothing -> record {
+    let state = (vpn-state)
+    if $state == null { return (vpn-not-running) }
+    {
+        carrying: ($state.active | default "nothing")
+        why: $state.reason
+        pinned: ($state.pinned | default "no (fastest wins)")
+        measured: ((($state.updated * 1_000_000_000) | into datetime) | date humanize)
+        # Both families: an IPv4 through the tunnel and an IPv6 of your own
+        # is a leak, and it is only visible if you look at both.
+        egress_v4: (do --ignore-errors { ^curl -s -4 --max-time 8 https://ifconfig.co } | default "" | str trim)
+        egress_v6: (do --ignore-errors { ^curl -s -6 --max-time 8 https://ifconfig.co } | default "(none)" | str trim)
+    }
+}
+
+# Pin the traffic to one tunnel, whatever the measurements say.
+def "vpn use" [name: string] {
+    run0 sh -c ("install -d -m 0755 /run/elvos-vpn" +
+        $"; printf '%s' '($name)' > /run/elvos-vpn/pin" +
+        "; systemctl restart elvos-vpn-watch")
+}
+
+# Back to the fastest one.
+def "vpn auto" [] {
+    run0 sh -c "rm -f /run/elvos-vpn/pin; systemctl restart elvos-vpn-watch"
+}
+
+# Start the watcher by hand - after enrolling the first tunnel on a system
+# where it was skipped at boot, which the enrolment does for you.
+def "vpn watch" [] { run0 systemctl restart elvos-vpn-watch }
+
+# A tunnel's own interface, for when one should not even hold a handshake.
+def "vpn up" [name: string] { run0 networkctl up $"wg-($name)" }
+
+def "vpn down" [name: string] { run0 networkctl down $"wg-($name)" }

@@ -1,1 +1,2 @@
 enable nftables.service
+enable elvos-vpn-watch.service
