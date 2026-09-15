@@ -212,6 +212,26 @@ def render-templates [src: path, dst: path] {
     rm -rf $stage
 }
 
+# `elv render`: every layer template rendered next to itself, as the build
+# would - what an editor needs to make sense of the tree. Quickshell's
+# theme/qmldir names Theme.qml, which only exists once Theme.qml.tmpl is
+# rendered, and without it qmlls calls every Theme.x in the shell an
+# unqualified access (239 warnings). The results are gitignored; a build
+# renders its own copies into the tree either way, so a stale one cannot
+# reach the image.
+export def render-all [] {
+    let vars = (template-vars)
+    let roots = ([(project | path join lib usr)] | append (layers))
+    for root in $roots {
+        for t in (glob ($root | path join "**/*.tmpl") --no-dir) {
+            let out = ($t | str replace --regex '\.tmpl$' '')
+            render $t $vars | save --force --raw $out
+            ^chmod --reference $t $out
+            print $"  ($out | path relative-to (project))"
+        }
+    }
+}
+
 # The image speaks what the layers' factory locale.conf says (usr.d/00-base:
 # usr/share/factory/etc/locale.conf), and nothing else: those locales are
 # compiled, PID 1 gets the same variables, and every other language's

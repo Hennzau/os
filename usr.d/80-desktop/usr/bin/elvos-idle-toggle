@@ -10,9 +10,9 @@ set -eu
 shell=/usr/share/quickshell/desktop/shell.qml
 
 if ! state=$(quickshell -p "$shell" ipc call idle "${1:-toggle}" 2>&1); then
-        echo "${0##*/}: no shell listening on $shell" >&2
-        echo "$state" >&2
-        exit 1
+    echo "${0##*/}: no shell listening on $shell" >&2
+    echo "$state" >&2
+    exit 1
 fi
 
 echo "$state"

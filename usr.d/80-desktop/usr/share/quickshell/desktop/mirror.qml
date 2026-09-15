@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -25,6 +27,8 @@ ShellRoot {
     }
 
     component OutputList: Column {
+        id: list
+
         property string heading: ""
         property string selected: ""
 
@@ -33,7 +37,7 @@ ShellRoot {
         spacing: 4
 
         Text {
-            text: parent.heading
+            text: list.heading
             color: Theme.muted
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSmall
@@ -43,14 +47,16 @@ ShellRoot {
             model: Quickshell.screens
 
             Rectangle {
+                id: item
+
                 required property var modelData
 
                 width: 150
                 height: 40
                 radius: Theme.radiusSmall
-                color: modelData.name === selected ? Theme.accent : hover.containsMouse ? Theme.hover : Theme.canvas
+                color: item.modelData.name === list.selected ? Theme.accent : hover.containsMouse ? Theme.hover : Theme.canvas
                 border.width: 1
-                border.color: modelData.name === selected ? Theme.accent : Theme.border
+                border.color: item.modelData.name === list.selected ? Theme.accent : Theme.border
 
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
@@ -59,8 +65,8 @@ ShellRoot {
                     width: parent.width - Theme.padSmall * 2
 
                     Text {
-                        text: modelData.name
-                        color: modelData.name === selected ? Theme.elevated : Theme.fg
+                        text: item.modelData.name
+                        color: item.modelData.name === list.selected ? Theme.elevated : Theme.fg
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall
                         elide: Text.ElideRight
@@ -68,8 +74,8 @@ ShellRoot {
                     }
 
                     Text {
-                        text: modelData.model
-                        color: modelData.name === selected ? Theme.elevated : Theme.placeholder
+                        text: item.modelData.model
+                        color: item.modelData.name === list.selected ? Theme.elevated : Theme.placeholder
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSmall - 1
                         elide: Text.ElideRight
@@ -83,7 +89,7 @@ ShellRoot {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: picked(modelData.name)
+                    onClicked: list.picked(item.modelData.name)
                 }
             }
         }

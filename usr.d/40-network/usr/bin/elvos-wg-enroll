@@ -13,24 +13,45 @@
 set -eu -o pipefail
 
 netdev=50-wg0
-config= activation=up
+config="" activation=up
 
 while [[ $# -gt 0 ]]; do
-        case $1 in
-        --manual)  activation=manual; shift ;;
-        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        -*)        echo "${0##*/}: unknown option: $1" >&2; exit 2 ;;
-        *)         config=$1; shift ;;
-        esac
+    case $1 in
+    --manual)
+        activation=manual
+        shift
+        ;;
+    -h | --help)
+        sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+        exit 0
+        ;;
+    -*)
+        echo "${0##*/}: unknown option: $1" >&2
+        exit 2
+        ;;
+    *)
+        config=$1
+        shift
+        ;;
+    esac
 done
 
-[[ -n $config ]] || { echo "${0##*/}: need a wg-quick config file" >&2; exit 2; }
-[[ -r $config ]] || { echo "${0##*/}: cannot read $config" >&2; exit 1; }
-[[ $EUID -eq 0 ]] || { echo "${0##*/}: must run as root" >&2; exit 1; }
+[[ -n $config ]] || {
+    echo "${0##*/}: need a wg-quick config file" >&2
+    exit 2
+}
+[[ -r $config ]] || {
+    echo "${0##*/}: cannot read $config" >&2
+    exit 1
+}
+[[ $EUID -eq 0 ]] || {
+    echo "${0##*/}: must run as root" >&2
+    exit 1
+}
 
 # section.Key=value, one per line, for every non-empty setting.
 parse() {
-        awk -F= '
+    awk -F= '
                 /^[[:space:]]*[#;]/ { next }
                 /^[[:space:]]*\[/   { gsub(/[][[:space:]]/, "", $0); section = $0; next }
                 NF < 2              { next }
@@ -53,7 +74,10 @@ allowed_ips=$(get Peer.AllowedIPs)
 keepalive=$(get Peer.PersistentKeepalive)
 
 for v in private_key addresses peer_key endpoint allowed_ips; do
-        [[ -n ${!v} ]] || { echo "${0##*/}: $config has no ${v//_/ }" >&2; exit 1; }
+    [[ -n ${!v} ]] || {
+        echo "${0##*/}: $config has no ${v//_/ }" >&2
+        exit 1
+    }
 done
 : "${keepalive:=25}"
 
@@ -63,12 +87,13 @@ install -d -m 0755 /etc/systemd /etc/systemd/network
 install -d -m 0700 /etc/credstore.encrypted
 
 umask 077
-tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
 printf '%s' "$private_key" >"$tmp/private"
 
 systemd-creds encrypt --name="network.wireguard.private.${netdev}" \
-        --with-key=auto "$tmp/private" \
-        "/etc/credstore.encrypted/network.wireguard.private.${netdev}"
+    --with-key=auto "$tmp/private" \
+    "/etc/credstore.encrypted/network.wireguard.private.${netdev}"
 
 umask 022
 
@@ -96,9 +121,9 @@ EOF
 # everything else, except the tunnel's own packets (marked 0xca6c), goes
 # through the tunnel.
 {
-        printf '[Match]\nName=wg0\n\n[Link]\nActivationPolicy=%s\n\n[Network]\n' "$activation"
-        printf '%s' "$addresses" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;/^$/d;s/^/Address=/'
-        cat <<'EOF'
+    printf '[Match]\nName=wg0\n\n[Link]\nActivationPolicy=%s\n\n[Network]\n' "$activation"
+    printf '%s' "$addresses" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;/^$/d;s/^/Address=/'
+    cat <<'EOF'
 
 [RoutingPolicyRule]
 To=10.0.0.0/8
@@ -137,7 +162,7 @@ cat <<MSG
 Enrolled from: ${config}
   endpoint   : ${endpoint}
   addresses  : ${addresses}
-  connect    : $( [[ $activation == up ]] && echo "at every boot" || echo "by hand (--manual)" )
+  connect    : $([[ $activation == up ]] && echo "at every boot" || echo "by hand (--manual)")
 
 Up:   networkctl up wg0
 Down: networkctl down wg0

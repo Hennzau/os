@@ -1,5 +1,6 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
-import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import "theme"
@@ -107,6 +108,8 @@ Rectangle {
     }
 
     component DeviceList: Column {
+        id: list
+
         property var nodes: []
         property var current: null
 
@@ -119,19 +122,21 @@ Rectangle {
             model: parent.nodes
 
             Rectangle {
+                id: item
+
                 required property var modelData
 
                 width: parent.width
                 height: 22
                 radius: Theme.radiusSmall
-                color: modelData === current ? Theme.active : pick.containsMouse ? Theme.hover : "transparent"
+                color: item.modelData === list.current ? Theme.active : pick.containsMouse ? Theme.hover : "transparent"
 
                 Text {
                     anchors.fill: parent
                     anchors.leftMargin: Theme.padSmall
                     verticalAlignment: Text.AlignVCenter
                     elide: Text.ElideRight
-                    text: root.label(modelData)
+                    text: root.label(item.modelData)
                     color: Theme.fg
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSmall
@@ -143,7 +148,7 @@ Rectangle {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: picked(modelData)
+                    onClicked: list.picked(item.modelData)
                 }
             }
         }

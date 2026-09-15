@@ -1,0 +1,16 @@
+# Ruff lints and formats this repo's Python (lib/vmctl.py and the scripts a
+# layer ships, which have no .py suffix - ruff finds them by shebang). Zed
+# runs the same binary (95-dev's settings.json), so pinning the rules here
+# keeps the editor, the terminal and anyone's check in agreement.
+
+# The editor's ruler: Zed's preferred_line_length is 100 as well.
+line-length = 100
+
+[lint]
+# What catches real mistakes, and nothing that argues about style: E7 is out
+# (the scripts use `a; b` and one-line imports on purpose, and argparse
+# variables called `l`), and so is SIM115 - vmctl holds its sockets and logs
+# open for the length of a command rather than in a with block.
+select = ["E4", "E9", "F", "B", "UP", "ISC", "FURB", "EXE"]
+# One line of imports at the top of a script is how they are written here.
+ignore = ["E401"]

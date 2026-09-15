@@ -1,0 +1,16 @@
+// Zed, for this repo only (the image's own settings live in
+// usr.d/95-dev/usr/share/zed/settings.json.tmpl).
+{
+  "languages": {
+    // kdlfmt writes KDL v2 - `include "session.kdl"` becomes a bare
+    // argument - and niri then refuses the config ("consider enclosing in
+    // double quotes"), checked with niri validate.
+    "KDL": { "format_on_save": "off" },
+    // The btrtl module is Linux's source. clang-format, even with the
+    // kernel's own .clang-format sitting next to it, reflows the hand
+    // alignment upstream has, and every reflowed line is noise in the diff
+    // the next LTS port has to read.
+    "C": { "format_on_save": "off" },
+    "C++": { "format_on_save": "off" }
+  }
+}

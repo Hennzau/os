@@ -5,6 +5,13 @@
  *  Copyright (C) 2015 Endless Mobile, Inc.
  */
 
+#include <linux/types.h>
+#include <linux/bitops.h>
+#include <linux/list.h>
+#include <linux/skbuff.h>
+#include <net/bluetooth/bluetooth.h>
+#include <net/bluetooth/hci_core.h>
+
 #define RTL_FRAG_LEN 252
 
 #define rtl_dev_err(dev, fmt, ...) bt_dev_err(dev, "RTL: " fmt, ##__VA_ARGS__)

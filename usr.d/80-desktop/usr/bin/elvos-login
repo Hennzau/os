@@ -2,10 +2,10 @@
 set -eu
 
 if [[ -z ${XDG_RUNTIME_DIR-} ]]; then
-        echo "elvos-login: XDG_RUNTIME_DIR unset - pam_systemd registered no" \
-             "logind session, so niri will not get a seat." >&2
-        echo "elvos-login: session=${XDG_SESSION_ID-none} vt=${XDG_VTNR-none}" \
-             "seat=${XDG_SEAT-none} user=$(id -un)" >&2
+    echo "elvos-login: XDG_RUNTIME_DIR unset - pam_systemd registered no" \
+        "logind session, so niri will not get a seat." >&2
+    echo "elvos-login: session=${XDG_SESSION_ID-none} vt=${XDG_VTNR-none}" \
+        "seat=${XDG_SEAT-none} user=$(id -un)" >&2
 fi
 
 runtime=${XDG_RUNTIME_DIR:-/tmp}

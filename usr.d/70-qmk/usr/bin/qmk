@@ -8,8 +8,8 @@ set -eu -o pipefail
 box=qmk
 
 if ! podman container exists "$box" 2>/dev/null; then
-        echo "qmk: first run - building the '$box' distrobox, which downloads QMK's toolchains" >&2
-        distrobox assemble create --file /usr/share/distrobox/qmk.ini --name "$box" >&2
+    echo "qmk: first run - building the '$box' distrobox, which downloads QMK's toolchains" >&2
+    distrobox assemble create --file /usr/share/distrobox/qmk.ini --name "$box" >&2
 fi
 
 exec distrobox enter "$box" -- qmk "$@"

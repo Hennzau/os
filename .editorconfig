@@ -1,0 +1,21 @@
+# Indentation, for every editor that reads this - Zed does, and so does
+# shfmt, which formats the shell scripts.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# The vendored kernel module: Linux's own style, which its .clang-format
+# spells out in full.
+[usr.d/10-hardware/modules/btrtl/*.[ch]]
+indent_style = tab
+indent_size = 8
+
+# QML and JSON as Qt and Zed write them.
+[*.{qml,json,json.tmpl}]
+indent_size = 4

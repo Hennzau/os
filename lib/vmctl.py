@@ -11,14 +11,26 @@
 #
 # Python rather than nushell: this is unix sockets and byte offsets.
 
-import argparse, base64, gzip, json, os, re, secrets, socket, struct, sys, time
+import argparse
+import base64
+import gzip
+import json
+import os
+import re
+import secrets
+import socket
+import struct
+import sys
+import time
 
 ws = os.environ["ELV_WORKSPACE"]
-CONSOLE_LOG, CONSOLE, SERIAL_LOG, QMP, STATE = (os.path.join(ws, f) for f in (
-    "console.log", "console.sock", "serial.log", "qmp.sock", "vmctl.state"))
+CONSOLE_LOG, CONSOLE, SERIAL_LOG, QMP, STATE = (
+    os.path.join(ws, f)
+    for f in ("console.log", "console.sock", "serial.log", "qmp.sock", "vmctl.state")
+)
 
-BOOT = re.compile(rb"BdsDxe: loading")        # firmware starting a boot option
-LOGIN = re.compile(rb"elv-vmctl-ready")        # hvc0's bash (see elv vm)
+BOOT = re.compile(rb"BdsDxe: loading")  # firmware starting a boot option
+LOGIN = re.compile(rb"elv-vmctl-ready")  # hvc0's bash (see elv vm)
 NOISE = re.compile(rb"\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]|\r")
 
 
@@ -95,34 +107,38 @@ def glyphs(path: str) -> tuple[int, int, dict]:
     character it draws. Several characters can share a glyph; the first
     listed (ASCII before its look-alikes) wins."""
     data = gzip.open(path).read() if path.endswith(".gz") else open(path, "rb").read()
-    if data[:2] == b"\x36\x04":                              # PSF1
+    if data[:2] == b"\x36\x04":  # PSF1
         mode, size = data[2], data[3]
         count, width, height, start = (512 if mode & 1 else 256), 8, size, 4
         table, unicode = start + count * size, bool(mode & 2)
         entries = lambda: _psf1_table(data[table:], count)
-    elif data[:4] == b"\x72\xb5\x4a\x86":                  # PSF2
+    elif data[:4] == b"\x72\xb5\x4a\x86":  # PSF2
         start, flags, count, size, height, width = struct.unpack("<6I", data[8:32])
         table, unicode = start + count * size, bool(flags & 1)
         entries = lambda: _psf2_table(data[table:], count)
     else:
         raise ValueError(f"{path}: not a PSF font")
     stride = (width + 7) // 8
-    bitmaps = [data[start + i * size:start + (i + 1) * size] for i in range(count)]
+    bitmaps = [data[start + i * size : start + (i + 1) * size] for i in range(count)]
     chars = entries() if unicode else [[chr(i)] for i in range(count)]
     out = {}
-    for bitmap, cs in zip(bitmaps, chars):
-        rows = tuple(int.from_bytes(bitmap[r * stride:(r + 1) * stride]) >> (stride * 8 - width) for r in range(height))
+    for bitmap, cs in zip(bitmaps, chars, strict=False):
+        rows = tuple(
+            int.from_bytes(bitmap[r * stride : (r + 1) * stride]) >> (stride * 8 - width)
+            for r in range(height)
+        )
         if cs and rows not in out:
             out[rows] = min(cs, key=lambda c: (not c.isascii(), c))
     return width, height, out
 
 
 def _psf1_table(t: bytes, count: int):
-    words = struct.unpack(f"<{len(t) // 2}H", t[:len(t) // 2 * 2])
+    words = struct.unpack(f"<{len(t) // 2}H", t[: len(t) // 2 * 2])
     out, cur = [], []
     for w in words:
         if w == 0xFFFF:
-            out.append(cur); cur = []
+            out.append(cur)
+            cur = []
         elif w != 0xFFFE:
             cur.append(chr(w))
     return out[:count]
@@ -148,8 +164,10 @@ def cell_bitmaps(fw: int, fh: int):
     for cy in range(h // fh):
         row = []
         for cx in range(w // fw):
-            px = [[pixels[o + i:o + i + 3] for i in range(0, fw * 3, 3)]
-                  for o in ((cy * fh + y) * stride + cx * fw * 3 for y in range(fh))]
+            px = [
+                [pixels[o + i : o + i + 3] for i in range(0, fw * 3, 3)]
+                for o in ((cy * fh + y) * stride + cx * fw * 3 for y in range(fh))
+            ]
             flat = [p for r in px for p in r]
             bg = max(set(flat), key=flat.count)
             row.append(tuple(sum(1 << (fw - 1 - x) for x in range(fw) if r[x] != bg) for r in px))
@@ -159,8 +177,12 @@ def cell_bitmaps(fw: int, fh: int):
 # What calibration writes to the console: ASCII, the CP437 repertoire the kernel's
 # built-in font covers - its low half spelled out, as Python's codec decodes
 # those bytes as control characters - and some of what systemd prints.
-CALIBRATION = ("".join(map(chr, range(33, 127))) + bytes(range(128, 256)).decode("cp437")
-               + "☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼⌂" + "●✓✗‣…")
+CALIBRATION = (
+    "".join(map(chr, range(33, 127)))
+    + bytes(range(128, 256)).decode("cp437")
+    + "☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼⌂"
+    + "●✓✗‣…"
+)
 GLYPHS = os.path.join(ws, "console-glyphs.json")
 VT = 12
 
@@ -173,21 +195,26 @@ def calibrate(key: str):
     data = base64.b64encode(CALIBRATION.encode()).decode()
     # On a VT nothing runs on: kmscon draws tty1-6 itself, and the kernel
     # draws only the VT in front - so switch to it, and back after.
-    marker(f"vt=$(fgconsole); chvt {VT}; {{ printf '\\033[2J\\033[H'; echo {data} | base64 -d; }} > /dev/tty{VT}; sleep 0.3", 10)
+    marker(
+        f"vt=$(fgconsole); chvt {VT}; {{ printf '\\033[2J\\033[H'; echo {data} | base64 -d; }} > /dev/tty{VT}; sleep 0.3",
+        10,
+    )
     # What each cell holds, from the kernel (/dev/vcsuN: one UTF-32 code
     # point per cell) - not assumed from the string, whose characters need
     # not take one cell each.
     held = marker(f"iconv -f UTF-32LE -t UTF-8 /dev/vcsu{VT}", 10)[0].decode()
     cells = [c for row in cell_bitmaps(8, 16) for c in row]
     seen = {}
-    for bitmap, ch in zip(cells, held):
+    for bitmap, ch in zip(cells, held, strict=False):
         if ch != " ":
             seen.setdefault(bitmap, []).append(ch)
     seen = {b: list(dict.fromkeys(cs)) for b, cs in seen.items()}
     # One glyph for several characters: the ASCII one if any; else it is
     # the replacement glyph, standing for whatever the kernel cannot draw.
-    table = {",".join(map(str, b)): next((c for c in cs if c.isascii()), cs[0] if len(cs) == 1 else "?")
-             for b, cs in seen.items()}
+    table = {
+        ",".join(map(str, b)): next((c for c in cs if c.isascii()), cs[0] if len(cs) == 1 else "?")
+        for b, cs in seen.items()
+    }
     marker(f"printf '\\033[2J\\033[H' > /dev/tty{VT}; chvt $vt", 10)
     json.dump({"key": key, "width": 8, "height": 16, "glyphs": table}, open(GLYPHS, "w"))
 
@@ -195,11 +222,23 @@ def calibrate(key: str):
 def font() -> tuple[int, int, dict]:
     if os.path.exists(GLYPHS):
         g = json.load(open(GLYPHS))
-        return g["width"], g["height"], {tuple(map(int, b.split(","))): c for b, c in g["glyphs"].items()}
+        return (
+            g["width"],
+            g["height"],
+            {tuple(map(int, b.split(","))): c for b, c in g["glyphs"].items()},
+        )
     # Before any calibration: of the fonts kbd ships, the closest to the
     # kernel's - all of ASCII and most of CP437 draw the same.
-    return glyphs(next(p for p in (os.path.join(ws, "tree/usr/share/kbd/consolefonts/cp850-8x16.psfu.gz"),
-                                   "/usr/share/kbd/consolefonts/cp850-8x16.psfu.gz") if os.path.exists(p)))
+    return glyphs(
+        next(
+            p
+            for p in (
+                os.path.join(ws, "tree/usr/share/kbd/consolefonts/cp850-8x16.psfu.gz"),
+                "/usr/share/kbd/consolefonts/cp850-8x16.psfu.gz",
+            )
+            if os.path.exists(p)
+        )
+    )
 
 
 def screen_text() -> str:
@@ -218,10 +257,13 @@ def screen_text() -> str:
                 c = " "
             elif (c := table.get(bitmap)) is not None:
                 pass
-            elif all(r in (0, (1 << fw) - 1) for r in bitmap) and not any(bitmap[:fh - 3]):
+            elif all(r in (0, (1 << fw) - 1) for r in bitmap) and not any(bitmap[: fh - 3]):
                 c = " "  # fbcon's underline cursor, alone in its cell
             else:
-                bits = lambda g: sum(bin(a ^ b).count("1") for a, b in zip(g, bitmap))
+
+                def bits(g, bitmap=bitmap):
+                    return sum((a ^ b).bit_count() for a, b in zip(g, bitmap, strict=False))
+
                 g, c = min(known, key=lambda kv: bits(kv[0]))
                 if bits(g) > fw * fh // 8:
                     c = "?"
@@ -241,7 +283,7 @@ def marker(cmd: str, timeout: float) -> tuple[bytes, int]:
     send(f"{cmd}\nprintf '\\n@@%s:%s@@\\n' {tag} $?\n")
     pattern = re.compile(rb"@@" + tag.encode() + rb":(\d+)@@")
     m = until("the command to finish", lambda: pattern.search(read(CONSOLE_LOG), start), timeout)
-    return NOISE.sub(b"", read(CONSOLE_LOG)[start:m.start()]).strip(b"\n"), int(m.group(1))
+    return NOISE.sub(b"", read(CONSOLE_LOG)[start : m.start()]).strip(b"\n"), int(m.group(1))
 
 
 def ready(timeout: float):
@@ -251,7 +293,9 @@ def ready(timeout: float):
     if n == state["boots"] and last_login() == state["login"]:
         return
     # A login this boot is one after the last we set up.
-    at = until("the guest to log in", lambda: (l := last_login()) > state["login"] and l or None, timeout)
+    at = until(
+        "the guest to log in", lambda: (l := last_login()) > state["login"] and l or None, timeout
+    )
     # A bare bash (elv vm puts it on hvc0 instead of a login). No line
     # editing, so the tty's echo setting applies and can be turned off; no
     # prompt, and none of the OSC context sequences profile hooks print.
@@ -267,19 +311,30 @@ def ready(timeout: float):
 def main():
     p = argparse.ArgumentParser(prog="elv vmctl")
     sub = p.add_subparsers(dest="verb", required=True)
-    w = sub.add_parser("wait", help="wait for the guest's shell; with a pattern, for it on this boot's serial output")
+    w = sub.add_parser(
+        "wait",
+        help="wait for the guest's shell; with a pattern, for it on this boot's serial output",
+    )
     w.add_argument("pattern", nargs="?")
     r = sub.add_parser("run", help="run a shell command in the guest; exits with its status")
     r.add_argument("command")
-    b = sub.add_parser("reboot", help="reboot the guest and wait for its shell (--no-wait: just the firmware)")
+    b = sub.add_parser(
+        "reboot", help="reboot the guest and wait for its shell (--no-wait: just the firmware)"
+    )
     b.add_argument("--no-wait", action="store_true")
     k = sub.add_parser("key", help="press keys by QEMU name: a, ret, spc, ctrl-alt-f2 ...")
     k.add_argument("keys", nargs="+")
-    s = sub.add_parser("screen", help="the console's text, read off the display; with a file, a PNG screenshot instead")
+    s = sub.add_parser(
+        "screen",
+        help="the console's text, read off the display; with a file, a PNG screenshot instead",
+    )
     s.add_argument("file", nargs="?")
     l = sub.add_parser("log", help="print a console log so far, cleaned up")
     l.add_argument("which", nargs="?", choices=["console", "serial"], default="serial")
-    m = sub.add_parser("menu", help="pick boot menu entry N (0 = the first) - the menu shows in window and --pristine VMs")
+    m = sub.add_parser(
+        "menu",
+        help="pick boot menu entry N (0 = the first) - the menu shows in window and --pristine VMs",
+    )
     m.add_argument("entry", type=int)
     u = sub.add_parser("push", help="copy a local file into the guest")
     u.add_argument("local")
@@ -316,7 +371,8 @@ def main():
         def shown():
             data = read(SERIAL_LOG)
             starts = [m.start() for m in BOOT.finditer(data)]
-            return True if starts and re.search(rb"Boot in \d+s", data[starts[-1]:]) else None
+            return True if starts and re.search(rb"Boot in \d+s", data[starts[-1] :]) else None
+
         until("the boot menu", shown, a.timeout)
         for key in ["down"] * a.entry + ["ret"]:
             qmp("human-monitor-command", **{"command-line": f"sendkey {key}"})
@@ -341,9 +397,14 @@ def main():
         # a grid: the cells come out as noise.
         drawn = [c for c in text if not c.isspace()]
         if drawn and drawn.count("?") > len(drawn) // 3:
-            print("vmctl: this is not the kernel console (kmscon?) - use `vmctl screen FILE.png`", file=sys.stderr)
+            print(
+                "vmctl: this is not the kernel console (kmscon?) - use `vmctl screen FILE.png`",
+                file=sys.stderr,
+            )
     elif a.verb == "log":
-        sys.stdout.buffer.write(NOISE.sub(b"", read(CONSOLE_LOG if a.which == "console" else SERIAL_LOG)))
+        sys.stdout.buffer.write(
+            NOISE.sub(b"", read(CONSOLE_LOG if a.which == "console" else SERIAL_LOG))
+        )
     elif a.verb == "quit":
         qmp("quit")
 

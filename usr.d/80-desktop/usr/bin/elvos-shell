@@ -6,8 +6,8 @@
 # and ignored clicks on a device. So wait, 5 s at most, for WirePlumber to
 # have chosen a default output.
 for _ in $(seq 50); do
-        pw-metadata -n default 2>/dev/null | grep -q "default.audio.sink" && break
-        sleep 0.1
+    pw-metadata -n default 2>/dev/null | grep -q "default.audio.sink" && break
+    sleep 0.1
 done
 
 exec quickshell -p /usr/share/quickshell/desktop/shell.qml "$@"

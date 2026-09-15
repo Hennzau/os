@@ -56,6 +56,32 @@ def compile [src: path, dir: path, kver: string, out: path] {
     rm -rf $out
     mkdir $out
     for ko in (glob ($dir | path join src "*.ko.zst")) { cp $ko $out }
+    compile-commands $src $dir $out
+}
+
+# What clangd needs to read the module's source as the kernel builds it -
+# hundreds of include paths and -D's, which no editor guesses. kbuild leaves
+# the exact command in `.<obj>.o.cmd`; it was run chrooted in the toolchain
+# tree, so every absolute path gets that tree in front of it. Written to the
+# module's cache and copied next to the source (gitignored) by main, so a
+# warm build keeps it in place too.
+def compile-commands [src: path, dir: path, out: path] {
+    let entries = (glob ($dir | path join src ".*.o.cmd") | where { $in !~ '\.mod\.o\.cmd$' } | each { |f|
+        let name = ($f | path basename | str replace --regex '^\.(.*)\.o\.cmd$' '$1')
+        let source = ($src | path join $"($name).c")
+        if not ($source | path exists) { return null }
+        # Up to the first ';': kbuild records objtool's run after the
+        # compiler's on the same line, and clangd would read its arguments.
+        let cmd = (open --raw $f | lines | first
+            | str replace --regex '^[^:]*:=\s*' ''
+            | split row ";" | first
+            | str replace --all " /usr/" $" ($dir)/usr/"
+            | str replace --all "-I/usr/" $"-I($dir)/usr/")
+        { directory: ($dir | path join src), file: $source, command: $cmd }
+    } | compact)
+    if ($entries | is-not-empty) {
+        $entries | to json | save --force ($out | path join compile_commands.json)
+    }
 }
 
 # Firmware the module asks for beyond what the kernel's module of the same
@@ -97,6 +123,8 @@ export def main [] {
             print $"  ($layer)/($name) built"
         }
         ns-run - sh -c $"mkdir -p '($dst)' && cp '($out)'/*.ko.zst '($dst)/'"
+        let cc = ($out | path join compile_commands.json)
+        if ($cc | path exists) { cp $cc ($src | path join compile_commands.json) }
     }
     ns-run - depmod -b $tree $kver
 

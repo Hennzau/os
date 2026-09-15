@@ -21,6 +21,7 @@ count, then per record load address, length and bytes (little endian), which
 rtl_download_eco4() in btrtl.c reads. The layout was worked out by
 github.com/mihaits/rtl8852bd-bt-linux.
 """
+
 import argparse
 import shutil
 import struct
@@ -41,10 +42,23 @@ def unpack(exe: Path, into: Path) -> Path:
     else:
         print("innoextract is not installed: unpacking in an Arch container")
         shutil.copy(exe, into / "driver.exe")
-        subprocess.run(["podman", "run", "--rm", "-v", f"{into}:/w:Z",
-                        "docker.io/library/archlinux:latest", "sh", "-c",
-                        "pacman -Sy --noconfirm innoextract > /dev/null"
-                        " && innoextract -s -d /w /w/driver.exe"], check=True)
+        unpack = (
+            "pacman -Sy --noconfirm innoextract > /dev/null && innoextract -s -d /w /w/driver.exe"
+        )
+        subprocess.run(
+            [
+                "podman",
+                "run",
+                "--rm",
+                "-v",
+                f"{into}:/w:Z",
+                "docker.io/library/archlinux:latest",
+                "sh",
+                "-c",
+                unpack,
+            ],
+            check=True,
+        )
     found = sorted(into.rglob(DAT))
     if not found:
         sys.exit(f"no {DAT} in {exe} - not a Realtek Bluetooth driver for this chip?")
@@ -56,19 +70,21 @@ def records(data: bytes):
         sys.exit(f"{DAT} does not start with BTNIC003")
     p = 0x200
     while p + HEADER <= len(data):
-        load, = struct.unpack_from("<I", data, p + 0x08)
-        field, = struct.unpack_from("<I", data, p + 0x20)
+        (load,) = struct.unpack_from("<I", data, p + 0x08)
+        (field,) = struct.unpack_from("<I", data, p + 0x20)
         length, index = field >> 8, field & 0xFF
         start = p + HEADER
         if load in LOADS and 0 < length <= len(data) - start:
-            yield index, load, data[start:start + length]
+            yield index, load, data[start : start + length]
             p = start + length
         else:
             p += 1
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("source", type=Path, help="the driver .exe, or its rtl8852bd_mp_chip_new.dat")
     ap.add_argument("-o", "--output", type=Path, default=DEFAULT)
     args = ap.parse_args()

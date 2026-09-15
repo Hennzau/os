@@ -1,5 +1,6 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
-import Quickshell
 import Quickshell.Io
 import "theme"
 
@@ -74,6 +75,8 @@ Rectangle {
             model: root.entries
 
             Rectangle {
+                id: entry
+
                 required property var modelData
 
                 width: parent.width
@@ -85,8 +88,8 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.padSmall
-                    text: modelData.label
-                    color: modelData.label === "Power off" ? Theme.error : Theme.fg
+                    text: entry.modelData.label
+                    color: entry.modelData.label === "Power off" ? Theme.error : Theme.fg
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSmall
                 }
@@ -100,7 +103,7 @@ Rectangle {
 
                     onClicked: {
                         root.open = false;
-                        runner.command = modelData.cmd;
+                        runner.command = entry.modelData.cmd;
                         runner.startDetached();
                     }
                 }

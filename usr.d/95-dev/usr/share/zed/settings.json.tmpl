@@ -34,6 +34,25 @@
         "marksman": true
     },
 
+    // What the files of an elv repo are, where the name does not say it:
+    // .nuon and the `elv` script are nushell; Zed's own settings and keymap
+    // are JSON with comments, and so is a rendered settings.json.tmpl; the
+    // systemd-shaped files are INI.
+    "file_types": {
+        "Nushell": ["nuon", "elv"],
+        "JSONC": ["**/zed/settings.json", "**/zed/keymap.json", "**/themes/*.json.tmpl"],
+        // A template is its language when every placeholder sits inside a
+        // string: the theme above, niri's session.kdl and Quickshell's
+        // Theme.qml. The others interpolate bare values - a JSON number, a
+        // TOML float, a CSS colour - and no parser accepts that, so they
+        // stay plain text and `elv render` is what gives their result a
+        // language server.
+        "QML": ["**/*.qml.tmpl"],
+        "KDL": ["**/*.kdl.tmpl"],
+        "INI": ["**/*.service", "**/*.network", "**/*.transfer", "**/*.desktop",
+                "**/systemd/**/*.conf", "**/repart.d/*.conf", "**/repart.sysinstall.d/*.conf"]
+    },
+
     "telemetry": {
         "diagnostics": false,
         "metrics": false
@@ -46,7 +65,14 @@
     "lsp": {
         "rust-analyzer": {
             "binary": { "path": "/usr/bin/rust-analyzer" },
-            "initialization_options": { "check": { "command": "clippy" } }
+            "initialization_options": {
+                "check": { "command": "clippy" },
+                // Its cargo runs (clippy above, build scripts, proc macros)
+                // write here instead of target/, so they never take the lock
+                // a `cargo build` in a terminal is waiting for - and neither
+                // rebuilds what the other just did.
+                "cargo": { "targetDir": "target/rust-analyzer" }
+            }
         },
         "clangd": { "binary": { "path": "/usr/bin/clangd" } },
         "zls": { "binary": { "path": "/usr/bin/zls" } },

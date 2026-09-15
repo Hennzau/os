@@ -1,0 +1,14 @@
+# clangd reads compile_commands.json from this directory - `elv modules`
+# writes it, with the exact command the kernel build ran (gcc). These are the
+# flags of that command clang has no equivalent for; left in, clangd reports
+# each as an error on line 1 and indexes nothing.
+CompileFlags:
+  Remove:
+    - -mpreferred-stack-boundary=*
+    - -mindirect-branch*
+    - -mrecord-mcount
+    - -mfunction-return=*
+    - -fno-allow-store-data-races
+    - -fzero-init-padding-bits=*
+    - -fconserve-stack
+    - -fmin-function-alignment=*

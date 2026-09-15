@@ -28,6 +28,7 @@ import sys
 import textwrap
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import NoReturn
 
 EAP_TLS, EAP_TTLS, EAP_PEAP, EAP_GTC, EAP_MSCHAPV2 = 13, 21, 25, 6, 26
 
@@ -36,7 +37,7 @@ TTLS_NON_EAP = {1: "Tunneled-PAP", 2: "Tunneled-MSCHAP", 3: "Tunneled-MSCHAPv2"}
 INNER_EAP = {EAP_MSCHAPV2: "MSCHAPV2", EAP_GTC: "GTC"}
 
 
-def die(msg):
+def die(msg) -> NoReturn:
     sys.exit(f"{Path(sys.argv[0]).name}: {msg}")
 
 
@@ -151,8 +152,11 @@ def pick_method(provider):
         if not inner:
             continue
 
-        cas = [base64.b64decode("".join(c.text.split()))
-               for c in m.iterfind("ServerSideCredential/CA") if c.text]
+        cas = [
+            base64.b64decode("".join(c.text.split()))
+            for c in m.iterfind("ServerSideCredential/CA")
+            if c.text
+        ]
         servers = [s.text.strip() for s in m.iterfind("ServerSideCredential/ServerID") if s.text]
         outer_id = m.findtext("ClientSideCredential/OuterIdentity")
         return outer, inner, cas, servers, outer_id
@@ -171,17 +175,26 @@ def cmd_import(args):
 
     chosen = pick_method(provider)
     if chosen is None:
-        types = [m.findtext("EAPMethod/Type") for m in provider.iterfind("AuthenticationMethods/AuthenticationMethod")]
-        die(f"no TTLS or PEAP method with a supported inner method (offered EAP types: {', '.join(types)}); "
-            "EAP-TLS needs a client certificate and is not handled here")
+        types = [
+            m.findtext("EAPMethod/Type") or "?"
+            for m in provider.iterfind("AuthenticationMethods/AuthenticationMethod")
+        ]
+        die(
+            f"no TTLS or PEAP method with a supported inner method (offered EAP types: {', '.join(types)}); "
+            "EAP-TLS needs a client certificate and is not handled here"
+        )
     outer, inner, cas, servers, outer_id = chosen
 
     if not cas:
-        die("the profile ships no CA certificate - refusing to connect without verifying the server")
+        die(
+            "the profile ships no CA certificate - refusing to connect without verifying the server"
+        )
     if not servers:
         die("the profile names no RADIUS server - refusing to connect without checking its name")
 
-    ssids = args.ssid or [s.text for s in provider.iterfind("CredentialApplicability/IEEE80211/SSID") if s.text]
+    ssids = args.ssid or [
+        s.text for s in provider.iterfind("CredentialApplicability/IEEE80211/SSID") if s.text
+    ]
     if not ssids:
         die("the profile names no SSID; pass --ssid")
 
@@ -190,8 +203,18 @@ def cmd_import(args):
     password = ask_password(args)
 
     for ssid in ssids:
-        write_network(Path(args.root), ssid, outer, inner, args.identity, anonymous,
-                      password, pem(cas), servers, args.force)
+        write_network(
+            Path(args.root),
+            ssid,
+            outer,
+            inner,
+            args.identity,
+            anonymous,
+            password,
+            pem(cas),
+            servers,
+            args.force,
+        )
 
 
 def cmd_add(args):
@@ -199,8 +222,18 @@ def cmd_add(args):
     inner = args.inner or ("Tunneled-PAP" if method == EAP_TTLS else "MSCHAPV2")
     ca_pem = read_ca(args.ca)
     password = ask_password(args)
-    write_network(Path(args.root), args.ssid, method, inner, args.identity,
-                  anonymous_for(args, ""), password, ca_pem, [args.server], args.force)
+    write_network(
+        Path(args.root),
+        args.ssid,
+        method,
+        inner,
+        args.identity,
+        anonymous_for(args, ""),
+        password,
+        ca_pem,
+        [args.server],
+        args.force,
+    )
 
 
 def cmd_list(args):
@@ -208,13 +241,17 @@ def cmd_list(args):
     for conf in sorted(base.glob("*.8021x")):
         fields = dict(line.split("=", 1) for line in conf.read_text().splitlines() if "=" in line)
         method = fields.get("EAP-Method", "?")
-        print(json.dumps({
-            "ssid": ssid_of(conf.stem),
-            "method": method,
-            "inner": fields.get(f"EAP-{method}-Phase2-Method", ""),
-            "identity": fields.get(f"EAP-{method}-Phase2-Identity", ""),
-            "server": fields.get(f"EAP-{method}-ServerDomainMask", ""),
-        }))
+        print(
+            json.dumps(
+                {
+                    "ssid": ssid_of(conf.stem),
+                    "method": method,
+                    "inner": fields.get(f"EAP-{method}-Phase2-Method", ""),
+                    "identity": fields.get(f"EAP-{method}-Phase2-Identity", ""),
+                    "server": fields.get(f"EAP-{method}-ServerDomainMask", ""),
+                }
+            )
+        )
 
 
 def cmd_remove(args):
@@ -236,22 +273,31 @@ def main():
     def secret_opts(sp):
         sp.add_argument("--identity", required=True, help="your login, usually user@realm")
         sp.add_argument("--anonymous", help="outer identity (default: anonymous@realm)")
-        sp.add_argument("--password-stdin", action="store_true", help="read the password from stdin")
+        sp.add_argument(
+            "--password-stdin", action="store_true", help="read the password from stdin"
+        )
         sp.add_argument("--force", action="store_true", help="replace an existing network")
 
-    i = sub.add_parser("import"); i.add_argument("file")
+    i = sub.add_parser("import")
+    i.add_argument("file")
     i.add_argument("--ssid", action="append", help="only these SSIDs (default: all in the profile)")
-    secret_opts(i); i.set_defaults(fn=cmd_import)
+    secret_opts(i)
+    i.set_defaults(fn=cmd_import)
 
-    a = sub.add_parser("add"); a.add_argument("ssid")
+    a = sub.add_parser("add")
+    a.add_argument("ssid")
     a.add_argument("--ca", required=True, help="CA certificate, PEM or DER")
     a.add_argument("--server", required=True, help="RADIUS server name, e.g. radius.univ.fr")
     a.add_argument("--method", default="TTLS", choices=["TTLS", "PEAP", "ttls", "peap"])
     a.add_argument("--inner", help="Tunneled-PAP, Tunneled-MSCHAPv2 (TTLS) or MSCHAPV2 (PEAP)")
-    secret_opts(a); a.set_defaults(fn=cmd_add)
+    secret_opts(a)
+    a.set_defaults(fn=cmd_add)
 
-    l = sub.add_parser("list"); l.set_defaults(fn=cmd_list)
-    r = sub.add_parser("remove"); r.add_argument("ssid"); r.set_defaults(fn=cmd_remove)
+    l = sub.add_parser("list")
+    l.set_defaults(fn=cmd_list)
+    r = sub.add_parser("remove")
+    r.add_argument("ssid")
+    r.set_defaults(fn=cmd_remove)
 
     args = p.parse_args()
     args.fn(args)

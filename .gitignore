@@ -1,5 +1,24 @@
 /keys/
 /out/
 __pycache__/
+.ruff_cache
 # Realtek's, not ours to redistribute: usr.d/10-hardware/modules/btrtl/make-firmware
 /usr.d/10-hardware/usr/lib/firmware/rtl_bt/rtl8852bd_eco4.bin
+
+# What `elv render` writes beside each template, for editors and language
+# servers (a build renders its own copies into the image tree).
+/usr.d/80-desktop/usr/share/fuzzel/fuzzel.ini
+/usr.d/80-desktop/usr/share/gtk-3.0/gtk.css
+/usr.d/80-desktop/usr/share/gtk-3.0/settings.ini
+/usr.d/80-desktop/usr/share/gtk-4.0/gtk.css
+/usr.d/80-desktop/usr/share/gtk-4.0/settings.ini
+/usr.d/80-desktop/usr/share/mako/config
+/usr.d/80-desktop/usr/share/niri/session.kdl
+/usr.d/80-desktop/usr/share/quickshell/desktop/theme/Theme.qml
+/usr.d/90-apps/usr/lib/firefox/mozilla.cfg
+/usr.d/90-apps/usr/share/alacritty/alacritty.toml
+/usr.d/95-dev/usr/share/zed/settings.json
+/usr.d/95-dev/usr/share/zed/themes/elvos.json
+
+# clangd reads this, `elv modules` writes it (lib/modules.nu).
+compile_commands.json

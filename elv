@@ -49,6 +49,11 @@ def "main tree" [--update] {
 # Build the layers' kernel modules (usr.d/*/modules/NAME) into the tree.
 def "main modules" [] { modules }
 
+# Render every layer template next to itself (gitignored), as a build renders
+# them into the image: what editors and language servers need to see, above
+# all Quickshell's theme/Theme.qml.
+def "main render" [] { tree render-all }
+
 # Build the initrd from its own small tree.
 def "main initrd" [] { initrd }
 

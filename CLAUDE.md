@@ -108,6 +108,8 @@ CacheDir so builds rarely download.
                          installer medium instead (see below)
 ./elv tree [--update] | modules | initrd | uki | image [--installer]   one stage
                          (tree runs modules too)
+./elv render             every layer template rendered next to itself
+                         (gitignored), for editors - see "Editor"
 ./elv vm [--serial|--headless] [--install] [--pristine] [--setup-mode]   QEMU window,
                          always Secure Boot; the window is a pristine machine
                          (every first-boot question), --serial/--headless are
@@ -1121,6 +1123,111 @@ after the tree (`elv modules` alone). Each `usr.d/*/modules/NAME/` (a
 - The build needs `CONFIG_DEBUG_INFO_BTF_MODULES`' pahole: in the toolchain
   tree it comes with the headers package; a host build without pahole fails
   at "BTF [M]" unless given `CONFIG_DEBUG_INFO_BTF_MODULES=`.
+
+## Editor and language servers (2026-09-15)
+
+The user asked for the repo to open in Zed with no warnings and every server
+working. What each language needed, and how to check it again (none of this
+needs Zed - the same binaries run from a terminal):
+
+- **Templates hid files the servers needed.** `theme/qmldir` names Theme.qml,
+  which only exists once `Theme.qml.tmpl` is rendered, so qmlls called every
+  `Theme.x` an unqualified access: **239 diagnostics**. `elv render`
+  (tree.nu `render-all`) now renders every layer template next to itself with
+  the build's own renderer; the twelve outputs are gitignored, and a build
+  renders its own into the tree regardless, so a stale one cannot ship. Re-run
+  it after editing a template or `vars/`.
+- **QML**, `/usr/lib/qt6/bin/qmllint *.qml theme/*.qml` (qmlls runs the same
+  checks): 239 → 0. Dropped five unused `import Quickshell` lines; added
+  `pragma ComponentBehavior: Bound` to the eight files that read an outer
+  component's ids from a delegate or a per-screen surface (every delegate
+  already declared `required property var modelData`, and nothing used an
+  injected `index`, so the pragma changes no behaviour); qualified the
+  handful of reads that Bound does not cover - `list.current`,
+  `item.modelData`, `entry.modelData`, `list.picked(...)` (qmllint read the
+  bare `picked(...)` as a typo of MouseArea's `clicked`). `.qmllint.ini` in
+  the shell's directory turns off one check, **UncreatableType**: Quickshell
+  registers PanelWindow as uncreatable because quickshell itself creates it
+  from the config, and declaring one is how Quickshell is used.
+- **Python**, `ruff check` + `ty check` (both /usr/bin, from 95-dev): clean.
+  `ruff.toml` at the root pins line-length 100 and the rule set, so the
+  editor and the terminal agree: E7 is **out** (the scripts use `a; b`,
+  one-line imports and argparse variables called `l` on purpose), E401 too,
+  and SIM115 - vmctl holds sockets and logs open for the length of a command.
+  Real fixes: a lambda in vmctl closed over the loop variable (B023) and
+  counted bits with `bin().count("1")` (FURB161, now `int.bit_count`);
+  `elvos-wifi-8021x`'s `die()` is annotated `-> NoReturn`, which is what
+  makes `ty` believe the None checks after it; vmctl.py is executable now
+  (EXE001).
+- **Shell**, `shellcheck -s bash` over the 15 scripts a shebang names: clean.
+  `config= activation=up` became `config=""` (SC1007), installer-finish reads
+  its `extra` lines with `while read -r` instead of word splitting (SC2013)
+  and carries a `# shellcheck source=/dev/null` directive on its own line -
+  prose after the directive is itself an error (SC1125).
+- **C, the btrtl module**: clangd needs the kernel's hundreds of include
+  paths and defines. `elv modules` now writes `compile_commands.json` next to
+  the source (gitignored) from kbuild's own `.btrtl.o.cmd`: the command up to
+  the first `;` (objtool's run follows it on that line), with the toolchain
+  tree's path in front of every absolute one, since the build ran chrooted
+  there. It lands in the module's cache too, so a warm build puts it back.
+  `.clangd` beside it removes the eight gcc-only flags clang rejects
+  (`-mindirect-branch*`, `-fzero-init-padding-bits=*`, ...) - left in, each
+  is an error on line 1 and nothing is indexed. `clangd
+  --check=.../btrtl.c` → 0 diagnostics (the "N errors" it prints are its own
+  SwapBinaryOperands tweak self-test, not diagnostics).
+- **Zed**: `file_types` in the image's settings name what the suffix does not
+  - `.nuon` and `elv` are Nushell, Zed's settings/keymap and any rendered
+  `*.json.tmpl` are JSONC (comments), and the systemd-shaped files are INI.
+  A committed `.zed/settings.json` turns **format_on_save off for Python and
+  KDL in this repo**: ruff would reflow vmctl.py's aligned comments and
+  one-line imports, and kdlfmt rewrites niri's `include "session.kdl"` as a
+  bare argument (322 changed lines in session.kdl alone). Both still run by
+  hand.
+- **btrtl.c/.h are upstream's text plus our hunks, and must stay that way**
+  (2026-09-15). Opening them in Zed ran clang-format with its LLVM defaults
+  over both: tabs became two spaces, 1100+ lines in the .c, and upstream's
+  hand alignment was reflowed - the next LTS port would have had to read all
+  of it. They were restored from v6.18.51 and our three hunks re-applied (the
+  eco4 block, the hook in btrtl_setup_rtl8723b, the MODULE_FIRMWARE line), so
+  `diff` against upstream is those three plus the header's includes.
+  The kernel's own `.clang-format` now sits in the module's directory, and
+  `.zed/settings.json` turns **format_on_save off for C**: even kernel style
+  reflows what upstream aligned by hand.
+- **The header was not self-contained**, so clangd - which parses a header as
+  its own translation unit - reported 20 unknown types (`__u8`, `__le16`,
+  `struct hci_dev`). btrtl.h now includes linux/types.h, bitops.h, list.h,
+  skbuff.h and net/bluetooth/{bluetooth,hci_core}.h; include guards make them
+  free at build time. That is our one deliberate divergence in that file.
+- **Formatted with each language's own tool** (2026-09-15, the user asked):
+  ruff format (line-length 100 from ruff.toml) for Python, shfmt for the 15
+  shell scripts, taplo fmt for TOML; QML was already what qmlformat writes.
+  `.editorconfig` holds the indentation each of them reads - 4 spaces, tabs
+  for the vendored kernel files. **Not formatted, on purpose**: KDL, because
+  kdlfmt writes KDL v2 (`include "session.kdl"` loses its quotes) and `niri
+  validate` then rejects the config - tried, reverted; C, above; nushell and
+  Markdown, for want of a packaged formatter (no topiary, and Zed's prettier
+  is not a CLI here).
+- **`.tmpl` files get their language too, where the template is still valid
+  in it** (user asked, 2026-09-15): a `file_types` glob is all it takes, and
+  three of the twelve qualify because every placeholder sits inside a string
+  - `themes/*.json.tmpl` (JSONC), `*.kdl.tmpl` (niri's session; syntax only,
+  there is no KDL server) and `*.qml.tmpl`, which needed `Quick.Color=disable`
+  in `theme/.qmllint.ini`: `"{{ .palette.x }}"` is not a colour, and nobody
+  writes a colour literal in that directory by hand. The other nine
+  interpolate a bare value - a JSON number in settings.json.tmpl
+  (`"buffer_font_size": {{ .font.size.editor }}`), a TOML float in
+  alacritty's, a CSS colour in gtk.css - and no parser accepts that, so they
+  stay plain text; `elv render` is what gives their *result* a language
+  server. mozilla.cfg.tmpl is valid JavaScript (Firefox autoconfig) and could
+  be mapped, but Zed downloads a TypeScript server for that.
+- **rust-analyzer writes to `target/rust-analyzer`** (user, 2026-09-15):
+  `cargo.targetDir` in its initialization_options, so its clippy runs, build
+  scripts and proc macros never hold the lock a `cargo build` in a terminal
+  is waiting for, and neither rebuilds what the other just did.
+- Nothing had to be added to 95-dev: clangd, ruff, ty, marksman, taplo,
+  kdlfmt, shellcheck, bash-language-server, yaml/json servers and
+  qt6-declarative's qmlls6 were all already there. `qmllint` is not on PATH
+  (only /usr/lib/qt6/bin/qmllint); qmlls6 is, which is what Zed uses.
 
 ## Hard-won facts — do not relearn these
 

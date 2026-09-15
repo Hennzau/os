@@ -924,8 +924,8 @@ static int btrtl_setup_rtl8723a(struct hci_dev *hdev,
  * 0xfc20 [0x80] at the end commits. Without the pointer write every record
  * lands in the default buffer and the patch never starts.
  */
-#define RTL_ECO4_FRAG	252
-#define RTL_ECO4_BUFPTR	0x801200ccU
+#define RTL_ECO4_FRAG 252
+#define RTL_ECO4_BUFPTR 0x801200ccU
 
 static int rtl_eco4_cmd(struct hci_dev *hdev, u16 op, const u8 *buf, int len)
 {
@@ -996,7 +996,8 @@ static int rtl_download_eco4(struct hci_dev *hdev)
 		put_unaligned_le32(load, setup + 5);
 		status = rtl_eco4_cmd(hdev, 0xfc62, setup, sizeof(setup));
 		if (status) {
-			rtl_dev_err(hdev, "eco4: buffer redirect failed (%d)", status);
+			rtl_dev_err(hdev, "eco4: buffer redirect failed (%d)",
+				    status);
 			ret = status < 0 ? status : -EIO;
 			goto out_frag;
 		}
@@ -1005,13 +1006,14 @@ static int rtl_download_eco4(struct hci_dev *hdev)
 			u32 flen = min_t(u32, RTL_ECO4_FRAG, len - off);
 
 			/* Bit 7 on a data fragment is no commit here: it
-			 * wedges the chip. The lone 0x80 below commits.
-			 */
+       * wedges the chip. The lone 0x80 below commits.
+       */
 			frag[0] = idx;
 			memcpy(frag + 1, data + off, flen);
 			status = rtl_eco4_cmd(hdev, 0xfc20, frag, flen + 1);
 			if (status) {
-				rtl_dev_err(hdev, "eco4: fragment failed (%d)", status);
+				rtl_dev_err(hdev, "eco4: fragment failed (%d)",
+					    status);
 				ret = status < 0 ? status : -EIO;
 				goto out_frag;
 			}
