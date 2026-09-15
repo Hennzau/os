@@ -87,6 +87,7 @@ lib/uki.nu          ukify build + sbsign; kernel cmdline lives here
 lib/image.nu        ESP staging, build-time repart defs, repart, `vm`
 lib/vmctl.py        `elv vmctl`: the VM's console/QMP sockets (Python)
 lib/burn.nu         elv burn: the image onto a disk (run0) or a file
+lib/layer.nu        elv layer: one layer as a systemd-sysext extension
 lib/usr/            built-in layer, applied beneath usr.d: tmpfiles (etc.conf,
                     the /etc whitelist), sysupdate.d transfers, runtime
                     repart.d (A + B slots),
@@ -126,6 +127,9 @@ CacheDir so builds rarely download.
                          the terminal
 ./elv burn TARGET [--yes] [--installer]   the image onto a whole disk (via
                          run0) or an existing file; asks first unless --yes
+./elv layer [NAME...] [--off]   a layer's files, rendered and merged into the
+                         running /usr by systemd-sysext from /run/extensions;
+                         nothing persists (see "A layer on the running system")
 ./elv sysupdate [--reboot]  inside an elv system: run0 systemd-sysupdate
                          --transfer-source=out update (needs a newer version)
 ./elv clean              remove the workspace
@@ -500,6 +504,34 @@ character of the signature changed booted *with Secure Boot on*, `/usr`
 - vmctl: nushell's line editor asks the terminal for the cursor position
   (`ESC[6n`) and waits; nothing answers on hvc0, so a nu login there hangs
   and drops typed-ahead input. Hence the hvc0 bash drop-in above.
+
+**`os`: which image is running, without root** (user, 2026-09-15: "give me a
+way to know which version i'm running without having to run0 bootctl list").
+`usr.d/00-base/.../autoload/11-elvos-os.nu`, ~20 ms, all of it world-readable:
+
+- `/usr/lib/os-release` for IMAGE_ID/IMAGE_VERSION - it is part of the /usr
+  that is *mounted*, so it names this image, not the disk's newest. The bare
+  minimum with no command at all is `open /usr/lib/os-release | lines | find
+  IMAGE`.
+- **EFI variables are 0644**, so `LoaderEntrySelected` (systemd's vendor GUID
+  `4a67b082-…`) gives the UKI systemd-boot chose - four bytes of attributes,
+  then UTF-16: `open --raw $f | bytes at 4.. | decode utf-16le`. A `+N-M`
+  suffix on that name means the boot is still being counted, a plain name
+  that it was blessed good. That is `bootctl list`'s "(selected)" without
+  root.
+- The slot: `findmnt /usr` → `/dev/mapper/usr` → `/sys/block/dm-0/slaves`
+  (the erofs and its hash partition), and `/sys/block/dm-0/dm/uuid` starting
+  `CRYPT-VERITY-` is how a user can tell verity is in play at all (whether
+  the *signature* was checked is not visible without root).
+- Both slots come from the partition labels repart wrote, via `lsblk -J -l -o
+  NAME,PATH,PARTLABEL` (unprivileged): `<id>_<version>` on the erofs
+  partition, `_verity`/`_verity_sig` beside it, `_empty` for a slot never
+  written. So `other` reads "26.9.137 on /dev/nvme0n1p4 - the previous one",
+  or "- newer, reboot to run it" after an `elv sysupdate` (versions compared
+  with `sort --natural`).
+- Nushell: a multi-line boolean needs the whole expression in parentheses,
+  exactly like a multi-line `+` - `and` at the start of a line is read as a
+  command otherwise. `char null` does not exist; `str replace --all "\u{0}"`.
 
 ## Minimal /etc, LTS kernel (2026-09-12)
 
@@ -1066,6 +1098,36 @@ answers - so it has to be measured.
   RuntimeDirectory, 0644); `vpn use NAME` writes `/run/elvos-vpn/pin` and
   restarts the unit, `vpn auto` deletes it. `vpn up/down NAME` is the
   interface itself.
+- **`vpn off` / `vpn on`** (2026-09-15, the user asked): off stops the
+  watcher, deletes its catch-all rules in both families (priorities 32750
+  and 32765, until `ip rule del` fails, so a duplicate left by a crash goes
+  too) and `networkctl down`s every tunnel - traffic takes the plain link,
+  which is what a captive portal's login page needs. `ActivationPolicy=up`
+  is what enrolment writes, and networkd sets a link up only when it
+  (re)configures it, so a tunnel downed by hand stays down (`always-up`
+  would fight it); a `systemctl restart systemd-networkd` - which enrolling
+  another tunnel does - brings them back up. `vpn on` ups them and restarts
+  the watcher, which gives the rule to the first one that is up before it
+  has measured anything. Because the state file outlives the unit
+  (RuntimeDirectoryPreserve), `vpn status`/`vpn list` now also ask
+  `systemctl is-active` and say the watcher is off rather than reporting a
+  stale carrier.
+- **`vpn tune`** raises the switching threshold for this boot: `--margin` ms,
+  `--rounds`, `--interval` s, `--probe` address, `--reset`, and with no
+  option it prints what is in force (25 / 3 / 20 / 1.1.1.1, or the tuned
+  values). It writes one `Environment=ELVOS_VPN_*` line into
+  **`/run`**`/systemd/system/elvos-vpn-watch.service.d/50-elvos-tune.conf`,
+  daemon-reloads and restarts the unit - the daemon already read all four
+  from the environment. Options accumulate, so raising the margin alone
+  keeps the rest; `--interval` below 5 s is refused (a round of four pings
+  at up to 3 s each would not have finished).
+  **/run, not /etc** (user, 2026-09-15: "is it possible that vpn tune
+  doesn't persist across boots?"), as `wifi prefer-5ghz`: what the watcher
+  should *always* do belongs in the repo - the unit's own `Environment=` -
+  and not in a file in /etc the image knows nothing about. Both the write
+  and `--reset` also delete an /etc drop-in of that name, which the first
+  version of the command wrote and which would mask the one in /run (of
+  each drop-in file name systemd takes only the highest-precedence copy).
 - **Testing without root or a VPN**: `elvos-vpn-watch --dry-run` decides and
   prints state, changing no rules, and honours `ELVOS_VPN_NETWORK_DIR` /
   `ELVOS_VPN_RUN`; `elvos-wg-enroll --root DIR` writes a tree somewhere else
@@ -1106,6 +1168,32 @@ answers - so it has to be measured.
   hole. `rule()` and the deletions now run for `-4` and `-6`, and `vpn
   status` prints **egress_v4 and egress_v6** - one address of each is the
   only way to see such a leak.
+- **DNS stays untunnelled** (user, 2026-09-15, asked what it would take:
+  "I will accept that my provider see my DNS, i think it's too much work and
+  caveats"). Queries go to the DHCP resolver (192.168.1.1 here) over the LAN
+  by rule 32763, so the ISP sees every name even though the traffic that
+  follows is tunnelled. What it would have cost: the provider's resolver is
+  **10.2.0.1**, inside the 10/8 the LAN rule claims, so it needs a rule of
+  its own at priority 32762 that the daemon moves on every switch - or a
+  public resolver with DNSOverTLS (routed into the active tunnel by the
+  catch-all, no extra rules), or narrowing the LAN exception to the actual
+  subnet. And with `Domains=~.` on the tunnels, a captive portal whose UDP
+  block keeps the tunnels dead leaves no working resolver at all, so the
+  login page cannot load.
+- **A switch breaks established connections**: all three tunnels share the
+  inner address (10.2.0.2), but the peer - and so the public IP - changes,
+  and TCP state at the far end is keyed to the old one. Streaming usually
+  rides it out on its buffer (segments are fetched over fresh connections);
+  SSH, non-resumable downloads and calls do not. That is what MARGIN=25 ms
+  and ROUNDS=3 are for; `systemctl edit elvos-vpn-watch` with
+  `Environment=ELVOS_VPN_MARGIN=80 ELVOS_VPN_ROUNDS=6` makes it switch only
+  for something clearly better, and `vpn use NAME` never switches at all -
+  though a pin also disables failover (choose() returns None when the pinned
+  tunnel is unhealthy).
+- **Captive portals**: bring every tunnel down (`vpn down NAME`), log in,
+  bring them up. A down tunnel's table has no default route, so rule 32765
+  finds nothing and falls through to main. A `vpn off` / `vpn on` pair for
+  all tunnels at once was offered and not (yet) asked for.
 - Known gap: a few seconds at boot between networkd bringing a tunnel up and
   the daemon installing the rule - traffic in that window is not tunnelled.
   networkd used to install the rule with the link. A kill switch (default
@@ -1308,6 +1396,57 @@ needs Zed - the same binaries run from a terminal):
   qt6-declarative's qmlls6 were all already there. `qmllint` is not on PATH
   (only /usr/lib/qt6/bin/qmllint); qmlls6 is, which is what Zed uses.
 
+## A layer on the running system (2026-09-15)
+
+`elv layer NAME...` renders a `usr.d/` layer and merges it into the running
+`/usr` with **systemd-sysext**, so an edit can be tried without building an
+image. `elv layer` alone reports what is merged, `--off` unmerges. The name
+may be part of one: `elv layer dev` finds 95-dev; an ambiguous or unknown one
+lists the layers.
+
+- **Nothing persists.** sysext merges the trees it finds in
+  `/etc/extensions`, `/run/extensions` and `/var/lib/extensions`; this uses
+  **/run**, which the next boot leaves empty. The image on disk and its
+  verity signature are untouched - the overlay just covers /usr while it is
+  mounted (`systemd-sysext.service` is enabled by upstream preset, so it
+  would merge at boot too, but there is nothing left to merge).
+- **Only /usr merges** - that is all sysext does (plus /opt), and all a layer
+  ships. `lib/layer.nu` stages into `workspace/sysext/<layer>/` with the
+  build's own `tree apply-usr`, so templates are rendered exactly as a build
+  renders them and no `.tmpl` is copied, then one run0 step does everything
+  privileged: `cp -a` into `/run/extensions/<layer>`, `chown -R root:root`
+  (the staged tree is ours), and one refresh.
+- **`ID=_any` in `usr/lib/extension-release.d/extension-release.<layer>`**
+  (whose name must equal the directory's). systemd compares the extension's
+  ID with the host's and, unless it is `_any`, then insists on SYSEXT_LEVEL
+  or VERSION_ID matching - and our os-release is Arch's, which has
+  `BUILD_ID=rolling` and **no VERSION_ID**. `ARCHITECTURE=x86-64` is checked
+  and matches; IMAGE_ID/IMAGE_VERSION go in for information only.
+- **`--always-refresh=yes`**, or re-running after an edit does nothing:
+  systemd skips the work when the *set* of extensions has not changed, and
+  "changes done to an extension directory while it's merged are ignored"
+  (systemd-sysext(8)).
+- **`EXTENSION_RELOAD_MANAGER=1`** is written when the layer has
+  `usr/lib/systemd/system`, so systemd reloads itself after merging and a new
+  unit is known without a `daemon-reload` by hand. Started services still
+  need restarting.
+- **What a sysext cannot carry**, printed as it stages: the layer's
+  `packages` (only files merge - a script whose binary is missing still will
+  not run), its `modules/` (build those with `elv modules`), and tmpfiles.
+  `/etc` and `~/.config` entries are deliberately *not* created: they are
+  links into `/usr/share/factory/etc` or `/usr/share/…` and would outlive the
+  merge as dangling links - run `systemd-tmpfiles --create` yourself if a
+  test needs them, knowing they persist.
+- **Verified**: staging 95-dev (both templates rendered, 0 `.tmpl` left,
+  release file right) and 40-network (`EXTENSION_RELOAD_MANAGER=1`, since it
+  has units); systemd **accepted the extension's metadata against the real
+  /usr/lib/os-release** ("Using extensions '40-network'. Merged extensions
+  into '/usr'.") in a user namespace with a tmpfs /run. The mount itself does
+  **not** land in a user namespace - it reports success and `systemd-sysext
+  status` then says `none` - so the merge is untested by Claude and the real
+  run needs root (run0). The command prints `systemd-sysext status` right
+  after refreshing, which is where a failure would show.
+
 ## Hard-won facts — do not relearn these
 
 **Environment**
@@ -1387,8 +1526,6 @@ needs Zed - the same binaries run from a terminal):
   i2c-hid-acpi + intel-lpss for laptop keyboards on I2C (USB HID,
   hid-generic, i8042/atkbd, the DesignWare I2C host and pinctrl-amd are
   built in). 42 modules.
-- No sysext dev workflow for `usr.d` layers yet (elvOS has `elvos-sysext`,
-  staging in `/run/extensions` so nothing persists).
 - The cmdline carries `console=ttyS0,115200 console=tty0` (tty0 last, so
   /dev/console is the screen); decide whether a real image keeps the serial one.
 - `elv boot` and `elv burn` onto a real device are untested by Claude (run0

@@ -13,6 +13,7 @@ use lib/initrd.nu
 use lib/uki.nu
 use lib/image.nu
 use lib/burn.nu
+use lib/layer.nu
 
 $env.ELV_ROOT = $env.FILE_PWD
 
@@ -96,6 +97,15 @@ def "main sysupdate" [--reboot] {
 # Drive a running `elv vm`: wait, run, reboot, key, screen, log, quit.
 def --wrapped "main vmctl" [...args] {
     with-env { ELV_WORKSPACE: (workspace) } { ^python3 (project | path join lib vmctl.py) ...$args }
+}
+
+# Try a layer's files on the *running* system: rendered like a build renders
+# them, then merged into /usr by systemd-sysext from /run/extensions. Nothing
+# persists - a reboot, or `elv layer --off`, leaves the signed image as it
+# was. Packages and kernel modules a layer names are not part of it. With no
+# name it reports what is merged.
+def "main layer" [...names: string, --off] {
+    layer ...$names --off=$off
 }
 
 # Boot the last built image's /usr in a container, in this terminal.

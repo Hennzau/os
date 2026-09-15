@@ -1,4 +1,4 @@
-# Wi-Fi (iwd), the WireGuard VPN (wg0) and the ssh agent, for every nushell.
+# Wi-Fi (iwd), the WireGuard tunnels and the ssh agent, for every nushell.
 
 # The per-user agent (ssh-agent.socket). The user manager's environment has
 # it from environment.d; a console login does not.
@@ -123,8 +123,49 @@ def vpn-not-running []: nothing -> record {
     } else {
         {
             vpn: $"enrolled: ($names | str join ', ')"
-            watcher: "not running - run0 systemctl start elvos-vpn-watch"
+            watcher: "not running - your traffic is not tunnelled; `vpn on` brings it back"
         }
+    }
+}
+
+# The watcher's state file survives the unit (RuntimeDirectoryPreserve), so
+# after `vpn off` it would still name a tunnel as carrying the traffic.
+def vpn-running []: nothing -> bool {
+    (^systemctl is-active elvos-vpn-watch.service | complete | get exit_code) == 0
+}
+
+# In /run, as `wifi prefer-5ghz`: tuning lasts until the next boot. What the
+# watcher should always do belongs in the repo - the unit's own Environment=
+# - not in a file in /etc that the image knows nothing about.
+def vpn-tune-file []: nothing -> string {
+    "/run/systemd/system/elvos-vpn-watch.service.d/50-elvos-tune.conf"
+}
+
+# A drop-in of the same name in /etc would mask the one in /run (systemd
+# takes the highest-precedence copy of each file name), and outlive the boot
+# unseen. The first version of this command wrote one there.
+def vpn-tune-stale []: nothing -> string {
+    "; rm -f /etc/systemd/system/elvos-vpn-watch.service.d/50-elvos-tune.conf"
+}
+
+# What the watcher is running with: its defaults, with whatever the drop-in
+# above overrides. Everything is kept as a string - it is only shown and
+# written back.
+def vpn-tuned []: nothing -> record {
+    let file = (vpn-tune-file)
+    let set = if ($file | path exists) {
+        open $file
+        | parse --regex 'ELVOS_VPN_(?<key>[A-Z]+)=(?<value>[^\s"]+)'
+        | reduce --fold {} { |it, acc| $acc | upsert ($it.key | str lowercase) $it.value }
+    } else {
+        {}
+    }
+    {
+        margin: ($set.margin? | default "25")
+        rounds: ($set.rounds? | default "3")
+        interval: ($set.interval? | default "20")
+        probe: ($set.probe? | default "1.1.1.1")
+        source: (if ($set | is-empty) { "the image's defaults" } else { "tuned, until the next boot" })
     }
 }
 
@@ -143,7 +184,7 @@ def "vpn enroll" [
 # Every tunnel, as the watcher last measured it.
 def "vpn list" []: nothing -> table {
     let state = (vpn-state)
-    if $state == null { return [(vpn-not-running)] }
+    if ($state == null) or (not (vpn-running)) { return [(vpn-not-running)] }
     $state.tunnels | each { |t|
         {
             tunnel: $t.name
@@ -159,7 +200,7 @@ def "vpn list" []: nothing -> table {
 
 def "vpn status" []: nothing -> record {
     let state = (vpn-state)
-    if $state == null { return (vpn-not-running) }
+    if ($state == null) or (not (vpn-running)) { return (vpn-not-running) }
     {
         carrying: ($state.active | default "nothing")
         why: $state.reason
@@ -192,3 +233,82 @@ def "vpn watch" [] { run0 systemctl restart elvos-vpn-watch }
 def "vpn up" [name: string] { run0 networkctl up $"wg-($name)" }
 
 def "vpn down" [name: string] { run0 networkctl down $"wg-($name)" }
+
+# Every catch-all rule elvos-vpn-watch may have installed, of either family.
+# It uses two priorities: 32765 in normal times, 32750 for the moment of a
+# switch. Deleting until it fails clears a duplicate left by a crash.
+def vpn-rules-del []: nothing -> string {
+    ("for f in -4 -6; do for p in 32750 32765; do "
+        + "while ip $f rule del priority $p 2>/dev/null; do :; done; done; done")
+}
+
+# Stop tunnelling: the watcher goes, its rules go with it, and every tunnel's
+# interface goes down. Traffic takes the plain link again - which is what a
+# captive portal's login page needs. `ActivationPolicy=up` (what enrolment
+# writes) only brings a link up when networkd configures it, so a tunnel
+# downed here stays down; `systemctl restart systemd-networkd` would undo it.
+def "vpn off" [] {
+    let downs = (vpn-enrolled | each { |n| $"networkctl down wg-($n) || true" } | str join "; ")
+    run0 sh -c ("systemctl stop elvos-vpn-watch; " + (vpn-rules-del)
+        + (if ($downs | is-empty) { "" } else { $"; ($downs)" }))
+}
+
+# Tunnel again: the interfaces come back up and the watcher starts, which
+# gives the rule to the first tunnel that is up before it has measured
+# anything, then moves it to the fastest.
+def "vpn on" [] {
+    let ups = (vpn-enrolled | each { |n| $"networkctl up wg-($n)" } | str join "; ")
+    if ($ups | is-empty) {
+        return { vpn: "no tunnel enrolled", enroll: "vpn enroll CONFIG" }
+    }
+    run0 sh -c ($ups + "; systemctl restart elvos-vpn-watch")
+}
+
+# How eagerly the watcher switches tunnels, until the next boot. With no
+# argument it shows what is in force; the options accumulate, so raising the
+# threshold alone keeps whatever else was set.
+#
+#   vpn tune --margin 60      a challenger must be 60 ms better to win
+#   vpn tune --rounds 5       ...and stay better for 5 rounds in a row
+#   vpn tune --interval 30    measure every 30 s
+#   vpn tune --reset          back to 25 ms / 3 rounds / 20 s / 1.1.1.1, which
+#                             a reboot does by itself
+def "vpn tune" [
+    --margin: int       # milliseconds a challenger must beat the carrying tunnel by
+    --rounds: int       # rounds in a row it must do it for
+    --interval: int     # seconds between measurements
+    --probe: string     # address pinged through each tunnel
+    --reset             # forget all of it
+] {
+    let file = (vpn-tune-file)
+    if $reset {
+        run0 sh -c ($"rm -f ($file) " + (vpn-tune-stale)
+            + "; systemctl daemon-reload; systemctl restart elvos-vpn-watch")
+        return
+    }
+    let now = (vpn-tuned)
+    if ([$margin $rounds $interval $probe] | all { |v| $v == null }) { return $now }
+
+    if ($margin != null) and ($margin < 0) { error make { msg: "--margin cannot be negative" } }
+    if ($rounds != null) and ($rounds < 1) { error make { msg: "--rounds must be at least 1" } }
+    # Below ~5 s the probe (four pings, up to 3 s each) has not finished
+    # before the next round is due.
+    if ($interval != null) and ($interval < 5) { error make { msg: "--interval must be at least 5 seconds" } }
+
+    let next = {
+        margin: (if $margin == null { $now.margin } else { $"($margin)" })
+        rounds: (if $rounds == null { $now.rounds } else { $"($rounds)" })
+        interval: (if $interval == null { $now.interval } else { $"($interval)" })
+        probe: (if $probe == null { $now.probe } else { $probe })
+    }
+    let conf = ("[Service]\\nEnvironment=ELVOS_VPN_MARGIN=" + $next.margin
+        + " ELVOS_VPN_ROUNDS=" + $next.rounds
+        + " ELVOS_VPN_INTERVAL=" + $next.interval
+        + " ELVOS_VPN_PROBE=" + $next.probe + "\\n")
+    # %b, so printf expands the \n itself.
+    run0 sh -c ($"install -d -m 0755 ($file | path dirname)"
+        + $"; printf '%b' '($conf)' > ($file)"
+        + "; chmod 0644 " + $file + " " + (vpn-tune-stale)
+        + "; systemctl daemon-reload; systemctl restart elvos-vpn-watch")
+    vpn-tuned
+}
