@@ -1,6 +1,6 @@
 # Image identity. Everything else about the image lives in usr.d/.
 {
     id: "elvOS"
-    version: "26.9.138"
+    version: "26.9.140"
     mirror: "https://archlinux.mailtunnel.eu"
 }

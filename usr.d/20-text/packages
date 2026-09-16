@@ -5,3 +5,7 @@ ttf-ibm-plex
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
+
+# The VTs drawn by kmscon, in the monospace font above, instead of the
+# kernel's bitmap font. Its freetype engine reads fontconfig directly.
+kmscon

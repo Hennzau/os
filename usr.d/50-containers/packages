@@ -3,3 +3,7 @@ podman
 distrobox
 passt
 fuse-overlayfs
+
+# QMK itself - its CLI and the AVR and ARM toolchains, ~2.6 GB - is not
+# installed: /usr/bin/qmk runs it in a distrobox built on first use, in the
+# rootless storage set up above.

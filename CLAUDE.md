@@ -25,6 +25,20 @@ and prefer lean code whose comments explain reasons rather than restate code.
   "Kernel modules from source"). A file a
   layer ships under `usr/share/factory/etc/` is an /etc default and wins over
   the package's version (it reaches /etc if a tmpfiles line names it).
+- **Layers are merged when one cannot stand without the other** (2026-09-16,
+  the user asked what could be merged): 30-console went into 20-fonts as
+  **`20-text`** - kmscon exists only for the font wish, and its
+  `font-name=monospace` means nothing without `59-elvos-fonts.conf` - and
+  70-qmk into **50-containers**, where `/usr/bin/qmk` already needed podman
+  and that layer's rootless storage (it had listed `distrobox` a second time,
+  the tree's only duplicated package, now gone). Kept apart on purpose:
+  60-virtualization (its own preset, polkit rule and `/etc/libvirt` copy, and
+  the likeliest thing to drop on another machine), 90-apps and 95-dev (big,
+  and a layer is the only unit of dropping there is). No two layers ship the
+  same path, so layer order has never actually mattered and a merge is free.
+  The package list after the merge is byte-identical, so `base/` did not
+  re-bootstrap. `elv layer qmk` no longer resolves - it is `elv layer
+  containers`.
 - `image.nuon` holds identity only: `id`, `version`, `mirror`.
 - **Templates** (2026-09-13): a layer file `NAME.tmpl` is rendered at build
   time into `NAME` (the template's mode kept) and never shipped itself;
@@ -643,7 +657,7 @@ The user's second layer, for what the hardware and the person at it need:
   the kernel package (gpu, net, input, snd, console, blk, scsi, rng...), and
   the initrd carries the ones boot needs.
 
-## usr.d/20-fonts: IBM Plex, Noto behind it (2026-09-13)
+## usr.d/20-text: IBM Plex, Noto behind it, kmscon on the VTs (2026-09-13)
 
 The user wants one family for everything, as on elvOS: **IBM Plex** (Sans,
 Serif, Mono - all in `ttf-ibm-plex`, which also has Sans Arabic, Hebrew,
@@ -674,9 +688,9 @@ Devanagari, Thai, JP, KR, TC, Condensed), with **Noto** as the fallback
 - **Test the policy in the VM, not with `chroot tree fc-match`**: the tree's
   /etc/fonts is the package one, not the factory - there Noto/Adwaita won.
 - The VT cannot use Plex through the kernel: fbcon draws PSF bitmap fonts
-  only. kmscon does it instead - usr.d/30-console, below.
+  only. kmscon does it instead - the second half of this layer.
 
-## usr.d/30-console: kmscon on the VTs (2026-09-13)
+### kmscon on the VTs (2026-09-13)
 
 The user wanted IBM Plex on the VT, so **kmscon** replaces agetty there.
 - Preset `85-elvos-console.preset`: `disable getty@.service`, `enable
@@ -754,7 +768,7 @@ installer profile keeps `root=tmpfs` (profile record `root:`).
   and /home there itself (runtime repart.d), TPM token on its root,
   running, /usr from vdb3/vdb4.
 
-## Layers 40-70 (2026-09-13)
+## Layers 40-60 (2026-09-13)
 
 **No `elvos` directories** (user, 2026-09-13): files go where the tool they
 are for would look under /usr, in the hope that tools read /usr natively
@@ -803,9 +817,10 @@ one day - `/usr/share/qmk/userspace`, `/usr/share/distrobox/qmk.ini`
   recreated by our tmpfiles (its own only has a `z`); polkit rule for wheel.
   Verified: `net-start default`, wheel user `virsh -c qemu:///system` with no
   prompt. The default network is not autostarted (as on Arch).
-- **70-qmk**: QMK runs in a **distrobox**, not from /usr - Arch's qmk pulls
-  arm-none-eabi-gcc (1.9 GB!), -newlib, avr-gcc, avr-libc: ~2.6 GB, which
-  had taken /usr from 1.4 to 2.9 GB of the then 4 GB slot. `/usr/bin/qmk`
+- **QMK** (in 50-containers since 2026-09-16, below): it runs in a
+  **distrobox**, not from /usr - Arch's qmk pulls arm-none-eabi-gcc (1.9
+  GB!), -newlib, avr-gcc, avr-libc: ~2.6 GB, which had taken /usr from 1.4
+  to 2.9 GB of the then 4 GB slot. `/usr/bin/qmk`
   (bash) builds the box on first use - `distrobox assemble create --file
   /usr/share/distrobox/qmk.ini` (archlinux image,
   `additional_packages="qmk"`, the userspace volume at the same path,
@@ -885,7 +900,7 @@ hash tree for 8G is ~65 MB); `systemd-repart --dry-run=yes --empty=allow
     `_empty`, `esp`).
   - Not ported: elvos-configd and its service (templates + user-tmpfiles
     replace it), zed's configs (the dev layer is deferred), qmk.ini.
-- **tty1**: greetd runs there (`vt = 1`), kmscon too (30-console). The
+- **tty1**: greetd runs there (`vt = 1`), kmscon too (20-text). The
   greetd drop-in has `After=` + `Conflicts=kmsconvt@tty1.service`, the
   pattern display managers use against getty@tty1. **Do not mask
   kmsconvt@tty1**: preset-all enables it through DefaultInstance and fails

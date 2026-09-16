@@ -1,4 +1,0 @@
-# QMK itself - its CLI and the AVR and ARM toolchains, ~2.6 GB - is not
-# installed: /usr/bin/qmk runs it in a distrobox built on first use. Listed
-# here too (50-containers has it) so the layer stands on its own.
-distrobox

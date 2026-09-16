@@ -1,3 +1,0 @@
-# The VTs drawn by kmscon, in the monospace font of 20-fonts, instead of the
-# kernel's bitmap font. Its freetype engine reads fontconfig directly.
-kmscon
