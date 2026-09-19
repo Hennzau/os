@@ -922,6 +922,24 @@ hash tree for 8G is ~65 MB); `systemd-repart --dry-run=yes --empty=allow
   logs in: niri-session → niri with ~/.config/niri/config.kdl (45 B, ours)
   including the linked session.kdl, Quickshell shell + background, mako,
   udiskie; the user-tmpfiles links and copies all in place.
+- **Calc's selected cell was white on white** (2026-09-19): `CalcCellFocus`
+  (the current cell's frame and its row/column header highlight) has no value
+  in `COLOR_SCHEME_LIBREOFFICE_AUTOMATIC`, so LibreOffice derives one - it
+  came out `#fafafa`, the palette's bg.editor. No GTK colour steers it (each
+  `@define-color` given a test value changed nothing; the portal accent is
+  unrelated), so `elvos.xcd` sets it to accent.primary as an int (6060258).
+  Verified by measuring pixels: frame and selected headers `#5c78e2`.
+- **Seeing a GUI app on the host without touching the user's session**: run
+  a nested `niri -c <scratch config with screenshot-path>` (it opens as one
+  window), start the app in it with `NIRI_SOCKET=<its socket> niri msg action
+  spawn -- ...`, and `screenshot-window --id` there. That copies into the
+  *nested* compositor's clipboard, not the user's - the host has no
+  wl-clipboard to save and restore theirs. LibreOffice needs a throwaway
+  `-env:UserInstallation=`, and it is single-instance per profile: close the
+  window and check `soffice.bin` exited before relaunching with other
+  settings. A changed `.xcd` can be tried before it is in /usr with a copy
+  of `share/registry` passed as `-env:CONFIGURATION_LAYERS=xcsxcu:file://COPY
+  res:file://COPY user:file://PROFILE/user/registrymodifications.xcu`.
 - **rtkit** (10-hardware, 2026-09-13): pipewire logged "RTKit error:
   ServiceUnknown" without it. D-Bus activated, no preset; verified: active,
   "Successfully made thread ... RT at priority 20" for pipewire, 0 errors.
