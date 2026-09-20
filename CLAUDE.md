@@ -653,6 +653,19 @@ The user's second layer, for what the hardware and the person at it need:
   active). Firmware is now the whole `linux-firmware` (+ sof-firmware): 470
   MB in /usr/lib/firmware (Arch ships it zstd-compressed, so erofs gains
   nothing), /usr 1.7 → 2.1 GB.
+- **The Logi Bolt receiver stopped suspend from sticking** (2026-09-20, the
+  user: with the dongle in, the laptop wakes right after it suspends). Its
+  usb device had `power/wakeup=enabled` and the journal showed suspend/resume
+  pairs 4-5 s apart; unplugged, the same machine sleeps.
+  `usr/lib/udev/rules.d/90-elvos-usb-wakeup.rules` sets
+  `ATTR{power/wakeup}="disabled"` for 046d:c548 alone - the wired Elora
+  keyboard (8d1d:a392, another port) keeps its wakeup on purpose, as does the
+  power button. `/proc/acpi/wakeup` needs no change: the xHCI controllers are
+  the *enabled* S0 sources there, but the per-device flag is what the
+  receiver uses. Note `wakeup_last_time_ms` is **monotonic**, which stops
+  during suspend, while `/proc/uptime` counts it - mapping one onto wall
+  clock is off by the total time asleep, so it cannot name the waking device
+  after several short suspends.
 - Guest drivers need nothing installed: every virtio driver is a module in
   the kernel package (gpu, net, input, snd, console, blk, scsi, rng...), and
   the initrd carries the ones boot needs.

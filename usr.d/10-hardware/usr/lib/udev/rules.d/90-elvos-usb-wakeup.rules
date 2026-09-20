@@ -1,0 +1,11 @@
+# The Logi Bolt receiver asserts USB remote wakeup as soon as the machine
+# suspends, so it resumes a few seconds later and suspend never sticks - with
+# the receiver unplugged the same laptop stays asleep. Nothing tells the
+# difference between that and a real key press, so the receiver is simply not
+# allowed to wake the machine any more; its mouse and keyboard still work, and
+# the laptop's own keyboard and the power button still wake it.
+#
+# Only this receiver: the wired keyboard on another port keeps its wakeup, and
+# so would any other device. For a second Logitech dongle (Unifying receivers
+# are 046d:c52b and friends), add its id here - `lsusb` prints it.
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="c548", ATTR{power/wakeup}="disabled"
