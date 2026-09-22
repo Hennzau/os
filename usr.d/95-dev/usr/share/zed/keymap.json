@@ -6,7 +6,7 @@
             "ctrl-l": "agents_sidebar::ToggleThreadSwitcher",
             "escape": "menu::Cancel",
             "ctrl-m": "projects::OpenRecent",
-            "ctrl-t": "workspace::ToggleBottomDock",
+            "ctrl-t": "terminal_panel::Toggle",
             "ctrl-i": "workspace::Open",
             "ctrl-w": "pane::CloseActiveItem",
             "ctrl-y": "project_panel::Toggle",

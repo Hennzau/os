@@ -975,6 +975,12 @@ vscode-json-languageserver, marksman, qt6-declarative (qmlls), zed. /usr
   .binary.path` for every server + `node.path`), elvOS's keymap and palette
   theme; user-tmpfiles `95-dev.conf`: all three `L` (read-only for Zed:
   UI changes are not saved - the user's choice, so image changes reach).
+- **Debugging in Zed (2026-09-22)**: `dap.CodeLLDB.binary` points at
+  `/usr/bin/lldb-dap` (lldb's own DAP binary, shipped by the lldb package),
+  so C, C++ and Rust breakpoints use the system's adapter and Zed
+  downloads no codelldb - same rule as the servers. gdb stays a terminal
+  tool (debuginfod on via the factory gdbinit); Zed's GDB adapter was
+  left unconfigured.
 - **Server ids** are the adapters' or extensions' `[language_servers.<id>]`:
   rust-analyzer, clangd, ty, ruff, bash-language-server (basher ext),
   yaml-language-server, json-language-server (built in); zls (zig ext),

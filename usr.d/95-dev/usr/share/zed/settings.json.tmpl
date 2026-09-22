@@ -1,7 +1,7 @@
 // Zed's settings as the image ships them, linked into ~/.config/zed
 // (usr/share/user-tmpfiles.d/95-dev.conf), so a setting changed in Zed's UI
-// is not saved: change it here. Every language server and formatter is the
-// system's, from 95-dev's packages - Zed downloads none.
+// is not saved: change it here. Every language server, formatter and debug
+// adapter is the system's, from 95-dev's packages - Zed downloads none.
 {
     "theme": "elvOS Light",
     "cli_default_open_behavior": "existing_window",
@@ -29,14 +29,6 @@
     "toolbar": { "quick_actions": false, "breadcrumbs": false },
     "title_bar": { "show_sign_in": false, "show_user_picture": false },
 
-    "agent_servers": {
-        "Mistral Vibe": {
-            "type": "custom",
-            "command": "vibe-acp",
-            "args": [],
-            "env": {}
-        },
-    },
     // Languages Zed has no support for built in. Extensions come from Zed's
     // registry at first start; their servers are pointed at /usr below.
     "auto_install_extensions": {
@@ -52,7 +44,8 @@
         "zig": true,
         "kdl": true,
         "basher": true,
-        "marksman": true
+        "marksman": true,
+        "make": true
     },
 
     // What the files of an elv repo are, where the name does not say it:
@@ -127,6 +120,11 @@
             "binary": { "path": "/usr/bin/vscode-json-languageserver", "arguments": ["--stdio"] }
         },
     },
+
+    // The debugger's adapter: lldb's own DAP binary (lldb package), not the
+    // codelldb Zed would otherwise download - same rule as the servers.
+    // Serves C, C++ and Rust breakpoints from the image.
+    "dap": { "CodeLLDB": { "binary": "/usr/bin/lldb-dap" } },
 
     "languages": {
         // ty for types, ruff for lint and format - not Zed's default
