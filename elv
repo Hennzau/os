@@ -94,6 +94,10 @@ def "main sysupdate" [--reboot] {
     ^run0 systemd-sysupdate --transfer-source (out-dir) update ...$args
 }
 
+# compile_commands.json for the QMK keymap, next to the layer (gitignored),
+# so clangd reads the flags the firmware is really built with - see lib/qmk-db.py.
+def "main qmk-db" [] { ^python3 (project | path join lib qmk-db.py) }
+
 # Drive a running `elv vm`: wait, run, reboot, key, screen, log, quit.
 def --wrapped "main vmctl" [...args] {
     with-env { ELV_WORKSPACE: (workspace) } { ^python3 (project | path join lib vmctl.py) ...$args }

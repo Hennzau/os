@@ -1,0 +1,20 @@
+# For the QMK keymap under usr/share/qmk/. clangd reads this file and the
+# compile_commands.json beside it from any parent directory of the source, so
+# both sit here, at the layer root: everything under usr/ is copied into the
+# image by apply-usr, and neither of these belongs there.
+#
+# `elv qmk-db` writes that database with the exact command QMK compiles the
+# keymap with (arm-none-eabi-gcc). This is the one flag of it clang has no
+# equivalent for; left in, clangd reports it as an error on line 1.
+CompileFlags:
+  Remove:
+    - -mno-thumb-interwork
+
+# `#include QMK_KEYBOARD_H` expands to the generated default_keyboard.h, an
+# umbrella that only re-includes other headers. include-cleaner counts a
+# header as used only when a symbol comes from that file itself, so it calls
+# the one include the keymap has "not used directly". Including it is how QMK
+# keymaps are written, so the check is told to leave it alone.
+Diagnostics:
+  Includes:
+    IgnoreHeader: [ default_keyboard\.h ]

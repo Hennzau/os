@@ -125,6 +125,8 @@ CacheDir so builds rarely download.
                          (tree runs modules too)
 ./elv render             every layer template rendered next to itself
                          (gitignored), for editors - see "Editor"
+./elv qmk-db             compile_commands.json for the QMK keymap, from the
+                         command QMK really builds it with (see "Editor")
 ./elv vm [--serial|--headless] [--install] [--pristine] [--setup-mode]   QEMU window,
                          always Secure Boot; the window is a pristine machine
                          (every first-boot question), --serial/--headless are
@@ -843,7 +845,9 @@ one day - `/usr/share/qmk/userspace`, `/usr/share/distrobox/qmk.ini`
   storage. Verified: first `qmk` builds the box, `qmk --version` → 1.2.0
   from inside, QMK_USERSPACE and the userspace volume visible in the box,
   toolchains there; the box is 5.0 GB of storage (cache emptied, was 5.5).
-  Firmware compile and flashing not tried. The user then found `make`
+  Firmware **compiles** (2026-09-22: `qmk compile --compiledb -kb
+  splitkb/halcyon/elora/rev2 -km elv` linked the .elf and wrote the .uf2
+  into both qmk_firmware and the userspace); flashing still not tried. The user then found `make`
   missing in the box (qmk's package assumes base-devel): the manifest now
   adds `make diffutils which`. `qmk compile` itself only exists once
   `~/qmk_firmware` (QMK_HOME) is a valid clone - the subcommand lives in
@@ -1433,6 +1437,40 @@ needs Zed - the same binaries run from a terminal):
   stay plain text; `elv render` is what gives their *result* a language
   server. mozilla.cfg.tmpl is valid JavaScript (Firefox autoconfig) and could
   be mapped, but Zed downloads a TypeScript server for that.
+- **The QMK keymap gets the same treatment as btrtl** (2026-09-22, the user
+  asked): `./elv qmk-db` (lib/qmk-db.py) writes a compile_commands.json for
+  `keymaps/elv/keymap.c`. Three things differ from the kernel module:
+  - **QMK never compiles keymap.c as its own translation unit** -
+    `quantum/keymap_introspection.c` includes it - so `qmk compile --compiledb`
+    (the old `generate-compilation-database` is deprecated and removed) leaves
+    no entry for it in QMK_HOME's database. The generator takes the
+    introspection unit's command, which *is* the keymap's, and re-points it.
+    Its 128 `-I` paths all land in ~/qmk_firmware or /var/lib/qmk, both
+    visible on the host; only the ARM toolchain is container-only.
+  - The command was recorded **inside the qmk box**, so its `-isystem`
+    /usr/lib/gcc/arm-none-eabi/… and /usr/arm-none-eabi/include do not exist
+    out here (clangd: 100 errors, starting at `assert.h`). They are copied
+    once with `podman cp` into `~/.cache/elv-qmk/sysroot` (23 MB) and the
+    paths rewritten - the same trick as btrtl's chroot prefix.
+  - **The database and `.clangd` live at `usr.d/50-containers/`, not beside
+    the keymap**: that directory is inside the layer's `usr/` tree and
+    `apply-usr` copies everything there into the image (as `__pycache__` once
+    taught us). clangd searches the file's directory *and every parent*, so
+    the layer root works and ships nothing - verified: a build leaves only
+    keymap.c and rules.mk in the image's keymaps/elv.
+  `-Werror` and the build's `-MF/-MMD/-MP` are dropped by the generator (a
+  build's business, not an editor's); `-mno-thumb-interwork` is the one flag
+  clang rejects, removed in `.clangd`. Result: **0 diagnostics** (the "98
+  errors" clangd --check prints are its SwapBinaryOperands self-test again).
+  The editor then flagged the keymap's only include, "default_keyboard.h is
+  not used directly": `#include QMK_KEYBOARD_H` expands to that generated
+  **umbrella**, and include-cleaner counts a header as used only when a symbol
+  comes from the file itself. `Diagnostics.Includes.IgnoreHeader:
+  [default_keyboard\.h]` in the same `.clangd` silences it. **`clangd --check`
+  cannot see this class of diagnostic** - include-cleaner runs only in the
+  editor - so the way to check a config key is the key itself: clangd logs
+  "Unknown Includes key 'X'; did you mean ..." for a wrong one and nothing for
+  a right one.
 - **rust-analyzer writes to `target/rust-analyzer`** (user, 2026-09-15):
   `cargo.targetDir` in its initialization_options, so its clippy runs, build
   scripts and proc macros never hold the lock a `cargo build` in a terminal
