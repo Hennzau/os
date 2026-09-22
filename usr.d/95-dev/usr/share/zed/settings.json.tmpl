@@ -10,14 +10,14 @@
     "autosave": "on_focus_change",
     "format_on_save": "on",
     "terminal": {
-        "shell": { "program": "/bin/nu" },
+        "shell": { "program": "/bin/nu" }
     },
     "project_panel": {
-        "dock": "left",
+        "dock": "left"
     },
     "agent": {
         "dock": "right",
-        "sidebar_side": "right",
+        "sidebar_side": "right"
     },
 
     "outline_panel": { "button": false },
@@ -34,7 +34,7 @@
             "type": "custom",
             "command": "vibe-acp",
             "args": [],
-            "env": {},
+            "env": {}
         },
     },
     // Languages Zed has no support for built in. Extensions come from Zed's
@@ -52,7 +52,7 @@
         "zig": true,
         "kdl": true,
         "basher": true,
-        "marksman": true,
+        "marksman": true
     },
 
     // What the files of an elv repo are, where the name does not say it:
@@ -77,13 +77,13 @@
             "**/*.desktop",
             "**/systemd/**/*.conf",
             "**/repart.d/*.conf",
-            "**/repart.sysinstall.d/*.conf",
+            "**/repart.sysinstall.d/*.conf"
         ],
     },
 
     "telemetry": {
         "diagnostics": false,
-        "metrics": false,
+        "metrics": false
     },
 
     // For the npm-built servers, the system's node rather than one Zed
@@ -99,8 +99,8 @@
                 // write here instead of target/, so they never take the lock
                 // a `cargo build` in a terminal is waiting for - and neither
                 // rebuilds what the other just did.
-                "cargo": { "targetDir": "target/rust-analyzer" },
-            },
+                "cargo": { "targetDir": "target/rust-analyzer" }
+            }
         },
         "clangd": { "binary": { "path": "/usr/bin/clangd" } },
         "zls": { "binary": { "path": "/usr/bin/zls" } },
@@ -108,7 +108,7 @@
         "ruff": { "binary": { "path": "/usr/bin/ruff", "arguments": ["server"] } },
         "tinymist": {
             "binary": { "path": "/usr/bin/tinymist" },
-            "initialization_options": { "formatterMode": "typstyle", "exportPdf": "onSave" },
+            "initialization_options": { "formatterMode": "typstyle", "exportPdf": "onSave" }
         },
         "nu": { "binary": { "path": "/usr/bin/nu", "arguments": ["--lsp"] } },
         // No entry for QML: its extension takes no binary path, and finds
@@ -118,13 +118,13 @@
         // shellcheck (diagnostics) and shfmt (formatting) are picked up by it
         // from PATH.
         "bash-language-server": {
-            "binary": { "path": "/usr/bin/bash-language-server", "arguments": ["start"] },
+            "binary": { "path": "/usr/bin/bash-language-server", "arguments": ["start"] }
         },
         "yaml-language-server": {
-            "binary": { "path": "/usr/bin/yaml-language-server", "arguments": ["--stdio"] },
+            "binary": { "path": "/usr/bin/yaml-language-server", "arguments": ["--stdio"] }
         },
         "json-language-server": {
-            "binary": { "path": "/usr/bin/vscode-json-languageserver", "arguments": ["--stdio"] },
+            "binary": { "path": "/usr/bin/vscode-json-languageserver", "arguments": ["--stdio"] }
         },
     },
 
@@ -141,15 +141,15 @@
                 "!pyrefly",
                 "...",
             ],
-            "formatter": { "language_server": { "name": "ruff" } },
+            "formatter": { "language_server": { "name": "ruff" } }
         },
         // The TOML and KDL extensions have no language server: format with
         // the CLI tools, reading the buffer on stdin.
         "TOML": {
-            "formatter": { "external": { "command": "taplo", "arguments": ["fmt", "-"] } },
+            "formatter": { "external": { "command": "taplo", "arguments": ["fmt", "-"] } }
         },
         "Kdl": {
-            "formatter": { "external": { "command": "kdlfmt", "arguments": ["format", "-"] } },
+            "formatter": { "external": { "command": "kdlfmt", "arguments": ["format", "-"] } }
         },
     },
 
@@ -157,11 +157,11 @@
     "preferred_line_length": 100,
     "show_whitespaces": "selection",
     "indent_guides": {
-        "enabled": true,
+        "enabled": true
     },
 
     "scrollbar": {
-        "show": "auto",
+        "show": "auto"
     },
 
     "buffer_font_family": "{{ .font.mono }}",
