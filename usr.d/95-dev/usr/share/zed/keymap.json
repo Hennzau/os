@@ -1,7 +1,9 @@
 [
     {
         "bindings": {
-            "ctrl-e": "file_finder::Toggle",
+            "ctrl-space": "file_finder::Toggle",
+            "ctrl-j": "agent::Toggle",
+            "ctrl-l": "agents_sidebar::ToggleThreadSwitcher",
             "escape": "menu::Cancel",
             "ctrl-m": "projects::OpenRecent",
             "ctrl-t": "workspace::ToggleBottomDock",
@@ -9,20 +11,20 @@
             "ctrl-w": "pane::CloseActiveItem",
             "ctrl-y": "project_panel::Toggle",
             "ctrl-u": "editor::ToggleFocus",
-            "ctrl-shift-p": "command_palette::Toggle"
-        }
+            "ctrl-shift-p": "command_palette::Toggle",
+        },
     },
     {
         "context": "Editor",
         "bindings": {
             "home": [
                 "editor::MoveToBeginningOfLine",
-                { "stop_at_soft_wraps": true, "stop_at_indent": true }
+                { "stop_at_soft_wraps": true, "stop_at_indent": true },
             ],
             "end": "editor::MoveToEndOfLine",
             "escape": "editor::Cancel",
-            "ctrl-shift-down": "editor::MoveLineDown",
-            "ctrl-shift-up": "editor::MoveLineUp",
+            "ctrl-'": "editor::MoveLineDown",
+            "ctrl-k": "editor::MoveLineUp",
             "ctrl-shift-left": "editor::SelectToPreviousSubwordStart",
             "ctrl-shift-right": "editor::SelectToNextSubwordEnd",
             "left": "editor::MoveLeft",
@@ -31,7 +33,7 @@
             "down": "editor::MoveDown",
             "shift-home": [
                 "editor::SelectToBeginningOfLine",
-                { "stop_at_soft_wraps": true, "stop_at_indent": true }
+                { "stop_at_soft_wraps": true, "stop_at_indent": true },
             ],
             "shift-end": "editor::SelectToEndOfLine",
             "shift-up": "editor::SelectUp",
@@ -50,8 +52,8 @@
             "ctrl-a": "editor::SelectAll",
             "ctrl-b": "pane::GoBack",
             "ctrl-n": "pane::GoForward",
-            "ctrl-l": "editor::GoToDefinition"
-        }
+            "ctrl-d": "editor::GoToDefinition",
+        },
     },
     {
         "context": "Editor && mode == full",
@@ -64,16 +66,16 @@
             "ctrl-s": "workspace::Save",
             "tab": "editor::Tab",
             "shift-tab": "editor::Backtab",
-            "ctrl-u": "editor::Rename"
-        }
+            "ctrl-u": "editor::Rename",
+        },
     },
     {
         "context": "Editor && showing_code_actions",
         "bindings": {
             "enter": "editor::ConfirmCodeAction",
             "up": "editor::ContextMenuPrevious",
-            "down": "editor::ContextMenuNext"
-        }
+            "down": "editor::ContextMenuNext",
+        },
     },
     {
         "context": "Editor && showing_completions",
@@ -82,53 +84,55 @@
             "shift-enter": "editor::ConfirmCompletionReplace",
             "tab": "editor::ConfirmCompletion",
             "up": "editor::ContextMenuPrevious",
-            "down": "editor::ContextMenuNext"
-        }
+            "down": "editor::ContextMenuNext",
+        },
     },
     {
         "context": "Editor && renaming",
         "bindings": {
-            "enter": "editor::ConfirmRename"
-        }
+            "enter": "editor::ConfirmRename",
+        },
     },
     {
         "context": "Markdown",
         "bindings": {
-            "ctrl-c": "markdown::Copy"
-        }
+            "ctrl-c": "markdown::Copy",
+        },
     },
     {
         "context": "Editor && copilot_suggestion",
         "bindings": {
-            "tab": "editor::AcceptEditPrediction"
-        }
+            "tab": "editor::AcceptEditPrediction",
+        },
     },
     {
         "context": "BufferSearchBar",
         "bindings": {
             "escape": "buffer_search::Dismiss",
             "enter": "search::SelectNextMatch",
-            "shift-enter": "search::SelectAllMatches"
-        }
+            "shift-enter": "search::SelectAllMatches",
+            "tab": "editor::Tab",
+            "shift-tab": "editor::Backtab",
+        },
     },
     {
         "context": "ProjectSearchBar",
         "bindings": {
             "escape": "buffer_search::Dismiss",
-            "enter": "menu::Confirm"
-        }
+            "enter": "menu::Confirm",
+        },
     },
     {
         "context": "Picker",
         "bindings": {
-            "enter": "menu::Confirm"
-        }
+            "enter": "menu::Confirm",
+        },
     },
     {
         "context": "SettingsWindow",
         "bindings": {
-            "escape": "workspace::CloseWindow"
-        }
+            "escape": "workspace::CloseWindow",
+        },
     },
     {
         "context": "ProjectPanel",
@@ -141,15 +145,15 @@
             "space": "project_panel::Open",
             "ctrl-x": "project_panel::Cut",
             "ctrl-c": "project_panel::Copy",
-            "ctrl-v": "project_panel::Paste"
-        }
+            "ctrl-v": "project_panel::Paste",
+        },
     },
     {
         "context": "ProjectPanel && not_editing",
         "bindings": {
             "enter": "project_panel::Rename",
-            "backspace": ["project_panel::Trash", { "skip_prompt": true }]
-        }
+            "backspace": ["project_panel::Trash", { "skip_prompt": true }],
+        },
     },
     {
         "context": "Terminal",
@@ -163,7 +167,14 @@
             "ctrl-shift-right": "pane::SplitRight",
             "ctrl-shift-left": "pane::SplitLeft",
             "ctrl-r": "terminal::Clear",
-            "ctrl-f": "buffer_search::Deploy"
-        }
-    }
+            "ctrl-f": "buffer_search::Deploy",
+        },
+    },
+    {
+        "context": "AcpThread > Editor",
+        "bindings": {
+            "shift-enter": "editor::Newline",
+            "enter": "agent::SendImmediately",
+        },
+    },
 ]
