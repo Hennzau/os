@@ -597,6 +597,19 @@ The user wants /etc really minimal; ParticleOS was the reference. The old
   in a booted image - on this one it also reports element-web's
   config.json, which no package ships (it is written by whoever serves the
   app), so that one stays dangling and element-desktop does not care.
+  **The check cannot see a config an app opens by path - and /etc is not
+  always the answer even when the package ships one there** (2026-09-23:
+  element-desktop refused to start with "no default server specified";
+  Arch ships /etc/element/config.json, but reading the app's code inside
+  its asar shows it is referenced by nothing - the desktop app reads a
+  config.json beside its asar (none ships) and then
+  ~/.config/Element/config.json, its userData, or a path from
+  --config/ELEMENT_DESKTOP_CONFIG_JSON; its only /etc reads are
+  machine-id/hostid). A false lead: `L /etc/element` was added and built
+  before the asar was read; reverted. The fix follows the ~/.config rule:
+  90-apps ships the package's own default config as
+  /usr/share/element/config.json and links it at
+  ~/.config/Element/config.json (90-apps.conf).
 - Verified: TLS (curl https → 200), pacman -Q, password login + run0 on
   tty1, pristine first boot → homed user (nu, wheel) logs in; running.
 - **Kernel: `linux-lts`** (6.18.50-2-lts, the host's too). The initrd rebuilt
@@ -917,6 +930,30 @@ hash tree for 8G is ~65 MB); `systemd-repart --dry-run=yes --empty=allow
     `_empty`, `esp`).
   - Not ported: elvos-configd and its service (templates + user-tmpfiles
     replace it), zed's configs (the dev layer is deferred), qmk.ini.
+- **The keyring unlocks at login (2026-09-23)**: Zed asks the Secret
+  Service for its default collection at every start; gnome-keyring -
+  D-Bus activated, nothing to unlock it - prompted for a keyring
+  password every session (and to create one at the first start). The
+  factory /etc/pam.d/greetd now runs `pam_gnome_keyring.so` (an auth
+  line capturing the login password, a session `auto_start` line that
+  starts the daemon and unlocks/creates the "login" keyring), and
+  80-desktop.conf links `~/.local/share/keyrings/default` at
+  `/usr/share/gnome-keyring/default` ("login"): the collection Zed asks
+  for is then the one PAM already unlocked, and no app prompts again.
+  Migrating a home that already answered the prompt: delete
+  `~/.local/share/keyrings/{Default.keyring,default}` once.
+- **Element's keyring (2026-09-23)**: Electron's safeStorage detects a
+  backend only under GNOME/KDE and offered "weaker encryption" on niri.
+  Arch's electron43 wrapper (element-desktop is its only consumer) reads
+  `~/.config/electron43-flags.conf` per launch, so 90-apps links that at
+  `/usr/share/element/electron43-flags.conf`
+  (`--password-store=gnome-libsecret`): Element then uses the Secret
+  Service - the login keyring the PAM integration above already
+  unlocked, no prompt, no manual launch argument. Its server config
+  ships the same way: `/usr/share/element/config.json` (the package's
+  own matrix.org default, which its `/etc/element/` copy never fed -
+  the app reads only the asar-adjacent and userData locations), linked
+  into `~/.config/Element/config.json`, the one place it looks.
 - **tty1**: greetd runs there (`vt = 1`), kmscon too (20-text). The
   greetd drop-in has `After=` + `Conflicts=kmsconvt@tty1.service`, the
   pattern display managers use against getty@tty1. **Do not mask

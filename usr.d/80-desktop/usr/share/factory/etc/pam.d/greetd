@@ -2,5 +2,13 @@
 
 auth       requisite    pam_nologin.so
 auth       include      system-local-login
+# Capture the login password for gnome-keyring: the session line below
+# unlocks the "login" keyring with it. Without this, every Secret Service
+# client (Zed asks at each start) prompts for the keyring's own password.
+auth       optional     pam_gnome_keyring.so
+
 account    include      system-local-login
 session    include      system-local-login
+# auto_start starts the daemon and unlocks the login keyring with the
+# password captured above.
+session    optional     pam_gnome_keyring.so auto_start
