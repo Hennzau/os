@@ -1089,6 +1089,26 @@ clang-format) + musl, cmake, meson, ninja, gdb, lldb, valgrind, python + uv
 shellcheck + shfmt, taplo-cli, kdlfmt, yaml-language-server,
 vscode-json-languageserver, marksman, qt6-declarative (qmlls), zed. /usr
 3.3 → 5.0 GB (8 GB slot).
+- **mold, lld, sccache (2026-09-28, the user's Rust workflow)**: mold is
+  the default linker and sccache the default rustc wrapper for every
+  native cargo build - both live in `/usr/share/cargo/config.toml`,
+  linked into `~/.cargo/config.toml` by `95-dev.conf` (the same
+  reach-the-home pattern as Zed's settings). **No `incremental` setting,
+  on purpose (2026-09-28)**: a global `incremental = false` was shipped
+  first, then reconsidered - cargo only gives `-C incremental` to local
+  crates (workspace members, path deps) and never to registry
+  dependencies, so the dependencies sccache actually caches were
+  cacheable all along, while the line only slowed the edit loop of
+  your own crates (for the bin crate pure loss: bins never cache).
+  Verified in a VM: with a member at `incremental = true`, a dependency
+  still compiled through sccache and hit the cache across a `rm -rf
+  target`. What sccache still cannot cache, by design:
+  `--crate-type bin` (rustc compiles and links a bin in one invocation;
+  the final crate passes through, everything below it - where compile
+  time lives - is cached), and manual `rustc -o` calls. mold needs
+  gcc 12.1+ (this image's is newer); lld needs no entry: it is the
+  alternative (`RUSTFLAGS=-Clink-arg=-fuse-ld=lld`) and serves the wasm
+  targets. sccache's cache is `~/.cache/sccache` (10 GB local).
 - Zed: `/usr/share/zed/settings.json.tmpl` (elvOS's settings + `lsp.<id>
   .binary.path` for every server + `node.path`), elvOS's keymap and palette
   theme; user-tmpfiles `95-dev.conf`: all three `L` (read-only for Zed:

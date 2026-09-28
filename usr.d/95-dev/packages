@@ -10,6 +10,12 @@ rust-musl
 rust-aarch64-gnu
 rust-aarch64-musl
 cargo-zigbuild
+# mold as the default linker, lld as the alternative, sccache caching
+# rustc across workspaces and target/ wipes - the ~/.cargo/config.toml
+# link wires all three up (95-dev.conf, /usr/share/cargo/config.toml).
+mold
+lld
+sccache
 
 zig
 zls

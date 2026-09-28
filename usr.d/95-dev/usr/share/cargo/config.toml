@@ -1,0 +1,26 @@
+# Cargo's global configuration, linked into ~/.cargo/config.toml
+# (95-dev.conf) so every image's version reaches the home; replace the
+# link with a file of your own to take it over.
+#
+# mold links every native build: the default bfd linker is by far the
+# slowest step of a Rust build, and -fuse-ld=mold needs gcc 12.1+ (this
+# image's is far newer). lld is the alternative - it needs no entry here,
+# and serves the wasm targets.
+#
+# sccache wraps rustc for every cargo invocation, so the same crate
+# versions compile once across workspaces and target/ wipes. Its cache
+# is ~/.cache/sccache (10 GB, local); `sccache --show-adv-stats` to see
+# it work, `sccache --stop-server` to shut it down. What it cannot
+# cache, and needs no setting for: cargo only gives -C incremental to
+# local crates (workspace members and path deps), never to registry
+# dependencies - so the dependencies, which is where compile time lives,
+# are cacheable exactly as they come, while your own crates keep the
+# incremental edit loop (a crate being edited could not hit the cache
+# anyway; each edit changes its hash). The one real exclusion is
+# --crate-type bin: rustc compiles and links a bin in one invocation, so
+# the final crate always passes through - everything below it is cached.
+[build]
+rustc-wrapper = "sccache"
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
