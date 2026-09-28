@@ -76,7 +76,11 @@ SUBSYSTEMS=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2067", ENV{ID_QMK
 ## PJRC's HalfKay
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="0478", ENV{ID_QMK}="1"
 
-SUBSYSTEM=="hidraw", KERNEL=="hidraw*", IMPORT{program}="qmk_id %S%p"
+# qmk's own rule imports the qmk_id callout here, naming bootloader HID
+# devices - but the binary lives in the qmk package, which this image
+# does not ship (qmk runs in its distrobox), so the import only produced
+# "Failed to find and pin callout binary" on every hidraw add. Dropped;
+# the uaccess lines below are what flashing needs from the host.
 
 # grant access to *all* hidraw devices
 # SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ENV{ID_QMK}="1"

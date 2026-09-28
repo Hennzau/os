@@ -9,6 +9,11 @@ auth       optional     pam_gnome_keyring.so
 
 account    include      system-local-login
 session    include      system-local-login
+# The greeter's own session goes through this stack too, and for it the
+# keyring line is nothing but an error (no daemon, no control file - and
+# no keyring to unlock: a session user with no password). The jump skips
+# it for the greeter alone; a real login falls through to the line below.
+session    [success=1 default=ignore]    pam_succeed_if.so user = greeter
 # auto_start starts the daemon and unlocks the login keyring with the
 # password captured above.
 session    optional     pam_gnome_keyring.so auto_start

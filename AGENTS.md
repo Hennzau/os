@@ -687,6 +687,37 @@ The user's second layer, for what the hardware and the person at it need:
   ("Long Life"), the sysfs list with underscores ("Long_Life"); the
   guard matches the uevent, the write the sysfs. Verified on hardware:
   Standard → Long_Life, both by a manual trigger and at boot.
+- **What the first red lines of a boot are (2026-09-28)**: reading them
+  is `journalctl -b -p err` - the journal is persistent (/var/log/journal
+  on the root), so past boots are `-b -1`, `--list-boots`. Two of the
+  boot-time errors were ours and are fixed: lenovo_wmi_gamezone's probe
+  failure (a driver for a WMI interface this model has not; blacklisted in
+  10-hardware's `modprobe.d/90-elvos-blacklist.conf`, and
+  power-profiles-daemon owns profiles anyway) and systemd-growfs's
+  `crypt_resize() ... Operation not permitted` on the root (repart's
+  `GrowFileSystem=` defaults to yes for Type=root, so the root mount
+  gained x-systemd.growfs every boot and growfs kept retrying the LUKS
+  resize, which needs the volume key the initrd still holds - while the
+  btrfs inside was already at full size; `GrowFileSystem=no` in
+  40-root.conf stops repart from re-setting it, but **the flag repart
+  set on the GPT partition at first boot persists on the disk and repart
+  does not clear it** - gpt-auto-generator reads it every boot and
+  keeps wanting growfs; installed machines need
+  `run0 sfdisk --part-attrs /dev/nvme0n1 9 ""` once). Three lines remain,
+  all the laptop's own firmware, every boot, on any OS: the ACPI BIOS
+  Error on the WLAN device's `_DSM` (AE_ALREADY_EXISTS), the AMD-Vi "No
+  ACPI device matched UID" firmware bug, and rtc_cmos's "IRQ index 0
+  not found" (ACPI declares no IRQ; the clock runs). fwupd has no newer
+  BIOS for the 83SG (T5CN19WW, 2025-12); the only removal is the kernel
+  console loglevel - `loglevel=2` would hide err-level lines from the
+  screen (the journal keeps them) - not set, the user's call. Expected
+  at every *login* (pam_gnome_keyring's auth phase runs before the
+  session phase starts the daemon): `gkr-pam: unable to locate daemon
+  control file`, followed two seconds later by
+  `gkr-pam: gnome-keyring-daemon started properly and unlocked keyring`
+  - one err-level line by upstream's choice of priority; the greeter's
+  own login is gated off it (pam_succeed_if jump in the factory
+  pam.d/greetd, 2026-09-28).
 - **The Logi Bolt receiver stopped suspend from sticking** (2026-09-20, the
   user: with the dongle in, the laptop wakes right after it suspends). Its
   usb device had `power/wakeup=enabled` and the journal showed suspend/resume
@@ -906,7 +937,11 @@ the key somewhere outside it.
   mine (exit 247). Do not start a VM, vmctl it, or rebuild (the overlay is
   backed by out/*.raw) while the user has one open. `distrobox rm qmk` rebuilds it
   with current packages. The host keeps qmk's udev rules (50-qmk.rules,
-  copied from the package: uaccess for bootloaders) and the userspace,
+  copied from the package: uaccess for bootloaders - **minus its qmk_id
+  import line, 2026-09-28: the callout binary belongs to the qmk package,
+  which the image does not ship (qmk runs in its distrobox), and every
+  hidraw add logged "Failed to find and pin callout binary"**. The
+  uaccess tags are what flashing needs from the host) and the userspace,
   copied once to `/var/lib/qmk` (wheel, ACL); `QMK_USERSPACE` (qmk_cli
   reads it; distrobox enter passes the host environment) in environment.d
   and a nushell autoload.
@@ -997,6 +1032,16 @@ hash tree for 8G is ~65 MB); `systemd-repart --dry-run=yes --empty=allow
   on a masked unit ("Failed to preset all unit: ... is masked") - which the
   build used to swallow (stderr to /dev/null, exit 1, no message); hermetic
   now prints preset-all's error.
+- **The greeter user has a real home (2026-09-28)**: greetd's own
+  sysusers file leaves it unset, which passwd renders as "/" - and every
+  user-tmpfiles config with %h then aimed at /.config, failing against
+  the 0555 root at each greeter login (the boot's `Failed to open path
+  '/.config'` lines). 80-desktop overrides
+  `usr/lib/sysusers.d/greetd.conf` (home `/var/lib/greeter`) and creates
+  it with `usr/lib/tmpfiles.d/80-elvos-desktop.conf`; the greeter's
+  user-tmpfiles now land there instead. sysusers never edits an existing
+  user: an installed machine needs `run0 usermod -d /var/lib/greeter
+  greeter` once.
 - **VM GPU.** The window uses `virtio-vga-gl` (virgl). Headless defaults to
   plain `virtio-vga` + `-display none`, where screendumps (vmctl screen)
   work - but **niri needs 3D**: on plain virtio-vga it opens no /dev/dri,
@@ -1701,7 +1746,22 @@ lists the layers.
   hid-generic, i8042/atkbd, the DesignWare I2C host and pinctrl-amd are
   built in). 42 modules.
 - The cmdline carries `console=ttyS0,115200 console=tty0` (tty0 last, so
-  /dev/console is the screen); decide whether a real image keeps the serial one.
+  /dev/console is the screen). **Kept, and the getty it spawns is
+  condition-gated (2026-09-28)**: `console=ttyS0` makes
+  systemd-getty-generator spawn serial-getty@ttyS0 everywhere, but the
+  laptop's ACPI declares a phantom legacy UART (ttyS0 opens, then every
+  terminal I/O fails - agetty exited 0 after its 10 s retry, so restart
+  knobs could not stop the loop; 350 journal errors a day).
+  `serial-getty@.service.d/10-elvos-vm-console.conf` (00-base) conditions
+  the whole template on `/dev/hvc0`: present in every VM (virtio
+  console), never on the laptop - the VM's `--serial` getty and its
+  agetty.autologin credential keep working, hardware gets one
+  "Condition failed" line at boot instead of the loop. **Two lessons in
+  the drop-in itself (2026-09-28, both bit twice)**: a `|`-prefixed
+  condition is a trigger - it can only permit a start, never prevent one,
+  so the first version ran everywhere; and the `[Unit]` header is not
+  optional - without it systemd drops the whole drop-in at parse time,
+  and the condition never existed.
 - `elv boot` and `elv burn` onto a real device are untested by Claude (run0
   needs interactive auth).
 - os-release is Arch's, so menus and the installer say "Arch Linux"; only
