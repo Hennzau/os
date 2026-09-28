@@ -1,0 +1,21 @@
+# sshd's configuration, as the image ships it. It reaches /etc/ssh/sshd_config
+# at boot through openssh's own tmpfiles (a C line copies from the factory,
+# where this file wins over the package's version) - C only copies what is
+# missing, so a machine that already has a sshd_config keeps its own: delete
+# /etc/ssh/sshd_config once to take the image's. The host keys
+# sshdgenkeys.service generates land beside it, in writable /etc/ssh.
+#
+# Keys only: ~/.ssh/authorized_keys decides who gets in; no password unlocks
+# anything. With a locked systemd-homed home - nobody logged in on the
+# machine - sshd cannot read the keys either: unlock the home first, or
+# register the key somewhere outside it.
+#
+# The include comes first on purpose: sshd takes the first value for each
+# keyword, so a file in /etc/ssh/sshd_config.d - where local overrides
+# belong - wins over anything below.
+Include /etc/ssh/sshd_config.d/*.conf
+
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+UsePAM yes
+AuthorizedKeysFile .ssh/authorized_keys

@@ -824,6 +824,23 @@ one day - `/usr/share/qmk/userspace`, `/usr/share/distrobox/qmk.ini`
 `/var/lib/qmk`, `/var/lib/containers/users/<uid>`. Script names
 (`elvos-*`) and drop-in file names (`50-elvos.conf`) still carry it.
 
+**sshd, keys only (2026-09-28, the user asked for `ssh localhost` and LAN
+access with the pubkeys in ~/.ssh)**: `enable sshd.service` in
+85-elvos-network.preset - the package's `sshdgenkeys.service` makes the
+host keys in writable /etc/ssh (a real dir: openssh's own tmpfiles `C`
+-copies moduli/ssh_config/sshd_config there from the factory, so host keys
+can live beside them; a factory *link* would have left them nowhere to
+go). Our keys-only config ships in the factory - 40-network's
+`usr/share/factory/etc/ssh/sshd_config`, which wins over the package's
+copy - and reaches /etc through openssh's own `C` line, which only copies
+what is missing: an installed machine keeps its sshd_config forever,
+`rm /etc/ssh/sshd_config` once to take the image's. nftables lets
+`ip saddr { 10/8, 172.16/12, 192.168/16 } tcp dport 22` in (10/8 covers
+the WireGuard inner nets, so `vpn on` ssh works too). The homed caveat:
+authorized_keys lives inside the LUKS home, so with nobody logged in on
+the machine there is nothing for sshd to read - unlock the home, or put
+the key somewhere outside it.
+
 - **40-network**: nftables (input drop, ICMP, DHCPv6, mDNS, DNS/DHCP from
   `virbr*`/`podman*`, forward only for those bridges, includes
   `/etc/nftables.d/*.conf`). nftables.service shows *inactive (dead)* after

@@ -3,3 +3,7 @@
 # tunnel at every boot - and with the tunnels' ActivationPolicy=manual it
 # would run with nothing to measure anyway.
 enable nftables.service
+# The ssh server: keys only (factory /etc/ssh/sshd_config), the firewall
+# lets the LAN and the tunnels' nets reach it. authorized_keys lives in
+# ~/.ssh, so a locked (not logged-in) homed home has nothing to offer.
+enable sshd.service
