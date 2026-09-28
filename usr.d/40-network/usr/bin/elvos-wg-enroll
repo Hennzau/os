@@ -1,5 +1,5 @@
 #!/bin/bash
-# elvos-wg-enroll [--manual] [--name NAME] CONFIG
+# elvos-wg-enroll [--up] [--name NAME] CONFIG
 #
 # Turn a wg-quick config - what a WireGuard provider hands out - into a
 # systemd-networkd tunnel. The private key goes into an encrypted credential
@@ -12,7 +12,8 @@
 # rule to the fastest (`vpn status`, `vpn use NAME` to pin one).
 #
 #   --name NAME  what to call it (default: the config's file name)
-#   --manual     do not bring it up at boot; `networkctl up wg-NAME` does
+#   --up         bring it up at every boot; the default is off - `vpn on`
+#                connects when you want it, and stays off across reboots
 #   --root DIR   write under DIR instead of /, start nothing and skip the
 #                credential - for testing this script, nothing else
 #
@@ -23,12 +24,12 @@ set -eu -o pipefail
 table_base=51820
 mark_base=0xca6c
 
-config="" activation=up name="" root=""
+config="" activation=manual name="" root=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-    --manual)
-        activation=manual
+    --up)
+        activation=up
         shift
         ;;
     --name)
@@ -201,13 +202,10 @@ EOF
 } >"${root}/etc/systemd/network/${netdev}.network"
 
 # A restart, not a reload: networkd imports its credentials when it starts.
+# Nothing is tunnelled here: the VPN is off by default (ActivationPolicy
+# =manual, and the watcher is no longer in the preset) - `vpn on` connects.
 if [[ -z $root ]]; then
     systemctl restart systemd-networkd
-    # Unconditionally: the unit is skipped at boot while no tunnel exists
-    # (ConditionPathExistsGlob), and `systemctl is-enabled` calls it
-    # "disabled" anyway - this image enables units with a .wants symlink in
-    # /usr, which systemd honours but does not count as enabled.
-    systemctl restart elvos-vpn-watch.service || true
 fi
 
 enrolled=("${root}"/etc/systemd/network/50-wg-*.netdev)
@@ -216,9 +214,9 @@ Enrolled from: ${config}
   name       : ${name}  (interface ${iface}, table ${table}, mark ${mark})
   endpoint   : ${endpoint}
   addresses  : ${addresses}
-  connect    : $([[ $activation == up ]] && echo "at every boot" || echo "by hand (--manual)")
+  connect    : $([[ $activation == up ]] && echo "at every boot (--up)" || echo "by hand (vpn on)")
 
-${#enrolled[@]} tunnel(s) enrolled. The fastest carries your traffic: vpn status
+${#enrolled[@]} tunnel(s) enrolled. Connect: vpn on   The fastest carries your traffic: vpn status
 Pin one: vpn use ${name}   Back to automatic: vpn auto
 
 ${config} still holds the private key - delete it: shred -u ${config}

@@ -1,0 +1,7 @@
+#!/bin/bash
+# Whether the VPN is on: the watcher runs, and its catch-all routing rule is
+# what sends traffic through a tunnel - `vpn on` starts it, `vpn off` and a
+# reboot stop it. Prints "on" or nothing; the bar's chip appears only when
+# there is something to say.
+set -eu
+systemctl is-active --quiet elvos-vpn-watch.service && echo on || true

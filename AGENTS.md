@@ -1,4 +1,4 @@
-# elv.os — context for Claude
+# elv.os - context for the agent (AGENTS.md, renamed from CLAUDE.md 2026-09-28)
 
 A nushell tool, `elv`, that builds Arch Linux images with a hermetic,
 verity-signed `/usr`. It replaces mkosi for the user's own OS. The user's
@@ -668,6 +668,25 @@ The user's second layer, for what the hardware and the person at it need:
   active). Firmware is now the whole `linux-firmware` (+ sof-firmware): 470
   MB in /usr/lib/firmware (Arch ships it zstd-compressed, so erofs gains
   nothing), /usr 1.7 → 2.1 GB.
+- **Charging caps at 80%** (2026-09-28, the user's choice):
+  `usr/lib/udev/rules.d/90-elvos-battery.rules` writes `Long_Life` to the
+  battery's `charge_types`. This battery (BAT1, Sunwoda
+  L25D4PF1) has no `charge_control_end_threshold` - the ideapad ACPI
+  (VPC2004) offers charge types instead, and Long_Life is Lenovo's 80%
+  preset; the active value reads back bracketed in the sysfs list
+  (`[Standard] Long_Life`, brackets = active), and the EC keeps the
+  setting once written. **change, not only add**: charge_types is
+  registered by ideapad_laptop's ACPI battery hook, and whether the
+  coldplug add sees it is a race against that module's own load - both
+  outcomes observed with the same add-only rule (a boot that left
+  Standard in force, one that applied it; the rule was also 0600 by
+  mistake then, which only hid the reason). The ENV guard
+  (`POWER_SUPPLY_CHARGE_TYPES != "Long Life"`) keeps the frequent
+  change events from writing once it is in force - and note the two
+  spellings: the uevent property carries the active type with a space
+  ("Long Life"), the sysfs list with underscores ("Long_Life"); the
+  guard matches the uevent, the write the sysfs. Verified on hardware:
+  Standard → Long_Life, both by a manual trigger and at boot.
 - **The Logi Bolt receiver stopped suspend from sticking** (2026-09-20, the
   user: with the dongle in, the laptop wakes right after it suspends). Its
   usb device had `power/wakeup=enabled` and the journal showed suspend/resume
@@ -1291,6 +1310,17 @@ answers - so it has to be measured.
   the daemon installing the rule - traffic in that window is not tunnelled.
   networkd used to install the rule with the link. A kill switch (default
   route blackholed until a tunnel is up) would close it; not asked for.
+- **Off by default (2026-09-28, the user's choice)**: enrolment writes
+  `ActivationPolicy=manual` (`--up` restores boot-connect), the watcher is
+  out of `85-elvos-network.preset`, and enrolment no longer starts it -
+  `vpn on` is what connects, and a reboot leaves the VPN off again.
+  `vpn on`/`vpn off` are unchanged (networkctl up/down + the watcher).
+  The bar says which it is: `elvos-vpn-status` prints `on` when the watcher
+  is active, and Bar.qml shows a green `vpn` chip beside the network label
+  (the same 10 s probe as `elvos-net-status`; absent chip = off).
+  Migrating tunnels enrolled before this: replace `ActivationPolicy=up`
+  with `=manual` in `/etc/systemd/network/50-wg-*.network`, then
+  `networkctl reload`.
 
 ## Main laptop's Bluetooth: RTL8852BD eco 4 (2026-09-14)
 

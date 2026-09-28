@@ -1,0 +1,18 @@
+# Cap charging at 80% (2026-09-28, the user's choice): this battery has no
+# charge_control_end_threshold - the ideapad ACPI (VPC2004) offers charge
+# types instead, and Long_Life is Lenovo's 80% preset; the EC keeps the
+# setting, so this only needs to be written when the battery appears.
+#
+# change, not only add: charge_types is registered by ideapad_laptop's ACPI
+# battery hook, and whether the coldplug add sees it is a race against that
+# module's own load (proven both ways: a boot that left Standard in force,
+# and one that applied it, same add-only rule). The hook's registration
+# re-emits the battery as a change, so the rule applies whichever order the
+# boot plays out.
+#
+# The ENV guard keeps it quiet after that: a battery emits a change for
+# every capacity tick. Note the spellings: the uevent property carries the
+# active type with a space ("Long Life"), the sysfs list with underscores
+# ("Long_Life") - the guard matches the uevent, the write the sysfs. TEST=
+# guards batteries without charge types entirely.
+ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="BAT*", TEST=="charge_types", ENV{POWER_SUPPLY_CHARGE_TYPES}!="Long Life", RUN{program}+="/bin/sh -c 'echo Long_Life > /sys%p/charge_types'"

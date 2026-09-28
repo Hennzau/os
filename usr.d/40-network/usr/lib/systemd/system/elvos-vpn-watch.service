@@ -1,7 +1,8 @@
 [Unit]
 Description=Give the traffic to the fastest WireGuard tunnel
 Documentation=file:/usr/bin/elvos-vpn-watch
-# Nothing to do until a tunnel is enrolled (elvos-wg-enroll).
+# Nothing to do until a tunnel is enrolled (elvos-wg-enroll) - and the VPN
+# is off by default: not in the preset, started only by `vpn on` / `vpn watch`.
 ConditionPathExistsGlob=/etc/systemd/network/50-wg-*.netdev
 After=systemd-networkd.service
 Wants=systemd-networkd.service

@@ -170,13 +170,15 @@ def vpn-tuned []: nothing -> record {
 }
 
 # Add a tunnel from a wg-quick config file (see elvos-wg-enroll --help).
+# The VPN is off by default: a tunnel connects only when you ask, and a
+# reboot leaves it off again.
 def "vpn enroll" [
     config: path
     --name: string          # what to call it; default: the file's name
-    --manual                # do not bring it up at boot
+    --up                    # connect at every boot; the default is off
 ] {
     mut args = []
-    if $manual { $args = ($args | append "--manual") }
+    if $up { $args = ($args | append "--up") }
     if $name != null { $args = ($args | append ["--name" $name]) }
     run0 elvos-wg-enroll ...$args ($config | path expand)
 }
@@ -225,8 +227,8 @@ def "vpn auto" [] {
     run0 sh -c "rm -f /run/elvos-vpn/pin; systemctl restart elvos-vpn-watch"
 }
 
-# Start the watcher by hand - after enrolling the first tunnel on a system
-# where it was skipped at boot, which the enrolment does for you.
+# The watcher alone, without touching any interface - `vpn on` is the
+# usual way to start it, which brings the tunnels up too.
 def "vpn watch" [] { run0 systemctl restart elvos-vpn-watch }
 
 # A tunnel's own interface, for when one should not even hold a handshake.
@@ -244,9 +246,9 @@ def vpn-rules-del []: nothing -> string {
 
 # Stop tunnelling: the watcher goes, its rules go with it, and every tunnel's
 # interface goes down. Traffic takes the plain link again - which is what a
-# captive portal's login page needs. `ActivationPolicy=up` (what enrolment
-# writes) only brings a link up when networkd configures it, so a tunnel
-# downed here stays down; `systemctl restart systemd-networkd` would undo it.
+# captive portal's login page needs. `ActivationPolicy=manual` (what enrolment
+# writes) means networkd never brings a link up on its own, so a tunnel
+# downed here stays down - and stays down across reboots, the off-by-default.
 def "vpn off" [] {
     let downs = (vpn-enrolled | each { |n| $"networkctl down wg-($n) || true" } | str join "; ")
     run0 sh -c ("systemctl stop elvos-vpn-watch; " + (vpn-rules-del)

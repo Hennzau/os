@@ -21,6 +21,7 @@ Item {
     }
     property alias stripItem: strip
     property string network: ""
+    property bool vpnOn: false
     property bool idleInhibited: false
 
     implicitHeight: Theme.barHeight
@@ -36,11 +37,25 @@ Item {
         }
     }
 
+    Process {
+        id: vpnProbe
+
+        command: ["/usr/bin/elvos-vpn-status"]
+        running: true
+
+        stdout: StdioCollector {
+            onStreamFinished: root.vpnOn = text.trim() == "on"
+        }
+    }
+
     Timer {
         interval: 10000
         running: true
         repeat: true
-        onTriggered: netProbe.running = true
+        onTriggered: {
+            netProbe.running = true;
+            vpnProbe.running = true;
+        }
     }
 
     SystemClock {
@@ -150,6 +165,16 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: root.network === "" ? "offline" : root.network
                 color: root.network === "" ? Theme.placeholder : Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSmall
+            }
+
+            Text {
+                height: status.height
+                verticalAlignment: Text.AlignVCenter
+                visible: root.vpnOn
+                text: "vpn"
+                color: Theme.success
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSmall
             }

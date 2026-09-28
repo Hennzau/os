@@ -1,2 +1,5 @@
+# elvos-vpn-watch is not here on purpose (2026-09-28): the VPN is off by
+# default and `vpn on` starts the watcher by hand. A preset enable would
+# tunnel at every boot - and with the tunnels' ActivationPolicy=manual it
+# would run with nothing to measure anyway.
 enable nftables.service
-enable elvos-vpn-watch.service
